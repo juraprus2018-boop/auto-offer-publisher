@@ -229,20 +229,22 @@ const Admin = () => {
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                Synchronisatie Bezig...
+                {progress.status || 'Synchronisatie Bezig...'}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <Progress value={syncProgressPercent} className="h-3" />
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-sm flex-wrap gap-2">
                 <span className="text-muted-foreground">
                   {progress.processedProducts.toLocaleString('nl-NL')} / {progress.totalProducts.toLocaleString('nl-NL')} producten
                 </span>
-                <span className="text-muted-foreground">
-                  Batch {progress.currentBatch} / {progress.totalBatches}
-                </span>
+                {progress.totalBatches > 0 && (
+                  <span className="text-muted-foreground">
+                    Batch {progress.currentBatch} / {progress.totalBatches}
+                  </span>
+                )}
                 <span className="font-medium text-primary">
-                  {progress.estimatedTimeRemaining} resterend
+                  {progress.estimatedTimeRemaining}
                 </span>
               </div>
             </CardContent>

@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Parse CSV text to array of objects - parse ALL products
+// Parse CSV text to array of objects
 function parseCSV(csvText: string): Record<string, string>[] {
   const lines = csvText.split('\n');
   if (lines.length < 2) return [];
@@ -184,109 +184,113 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    const { syncType = 'manual', batchStart = 0 } = await req.json().catch(() => ({}));
+    const body = await req.json().catch(() => ({}));
+    const { syncType = 'manual', batchIndex = 0, syncLogId: existingSyncLogId, cachedProducts } = body;
 
-    console.log(`Starting ${syncType} sync from batch ${batchStart}...`);
+    console.log(`Processing batch ${batchIndex}, syncType: ${syncType}`);
 
-    // Get settings including feed URL
+    // Get settings
     const { data: settings } = await supabase
       .from('awin_settings')
       .select('*')
       .single();
 
-    const feedUrl = settings?.feed_url || 'https://productdata.awin.com/datafeed/download/apikey/cc2ecfcc47d7f52eb73791bc24cafe28/language/nl/cid/97,98,142,144,146,129,595,539,147,149,613,626,135,163,159,161,170,137,171,548,174,183,178,179,175,172,623,139,614,189,194,141,205,198,206,203,208,199,204,201,61,62,72,73,71,74,75,76,77,78,63,80,64,83,84,85,65,86,88,90,89,91,67,94,33,53,52,603,66,128,130,133,212,209,210,211,68,69,213,220,221,70,224,225,226,227,228,229,4,5,10,537,13,19,15,14,6,22,24,25,7,30,29,32,619,8,35,618,42,43,9,50,634,230,538,235,241,242,521,576,575,577,579,281,283,285,286,282,290,287,288,627,173,193,637,177,196,379,648,181,645,384,387,646,598,611,391,393,647,395,631,602,570,600,405,187,411,412,414,415,416,417,649,418,419,420,99,100,101,107,110,111,113,114,115,116,118,121,122,127,581,624,123,594,125,421,605,604,599,422,433,434,436,532,428,474,475,476,477,423,608,437,438,441,444,445,446,424,451,448,453,449,452,450,425,455,457,459,460,456,458,426,616,463,464,465,466,427,625,597,473,469,617,470,429,430,481,615,483,484,485,488,529,596,431,432,490,361,633,362,366,367,371,369,363,372,374,377,375,536,535,364,378,380,381,365,383,390,402,404,406,407,540,542,544,546,547,246,247,252,559,255,248,256,258,259,632,260,261,262,557,249,266,267,268,269,612,251,277,250,272,271,561,560,347,348,354,350,351,349,357,358,360,586,588,328,629,333,336,338,493,635,495,507,563,564,566,567,569,568/columns/aw_deep_link,product_name,aw_product_id,merchant_image_url,description,merchant_category,search_price,merchant_name,aw_image_url,currency,store_price,merchant_deep_link,category_name,brand_name/format/csv/delimiter/%2C/compression/gzip/';
     const seoTemplate = settings?.seo_title_template || '[brand] [title] - [discount]% Korting | KortingDeal.nl';
 
-    // Create or get sync log
-    let syncLogId: string;
-    
-    if (batchStart === 0) {
-      // New sync - create log entry
+    let allProducts: AwinProduct[] = [];
+    let syncLogId = existingSyncLogId;
+
+    // Only fetch products on first batch
+    if (batchIndex === 0) {
+      const feedUrl = settings?.feed_url || 'https://productdata.awin.com/datafeed/download/apikey/cc2ecfcc47d7f52eb73791bc24cafe28/language/nl/cid/97,98,142,144,146,129,595,539,147,149,613,626,135,163,159,161,170,137,171,548,174,183,178,179,175,172,623,139,614,189,194,141,205,198,206,203,208,199,204,201,61,62,72,73,71,74,75,76,77,78,63,80,64,83,84,85,65,86,88,90,89,91,67,94,33,53,52,603,66,128,130,133,212,209,210,211,68,69,213,220,221,70,224,225,226,227,228,229,4,5,10,537,13,19,15,14,6,22,24,25,7,30,29,32,619,8,35,618,42,43,9,50,634,230,538,235,241,242,521,576,575,577,579,281,283,285,286,282,290,287,288,627,173,193,637,177,196,379,648,181,645,384,387,646,598,611,391,393,647,395,631,602,570,600,405,187,411,412,414,415,416,417,649,418,419,420,99,100,101,107,110,111,113,114,115,116,118,121,122,127,581,624,123,594,125,421,605,604,599,422,433,434,436,532,428,474,475,476,477,423,608,437,438,441,444,445,446,424,451,448,453,449,452,450,425,455,457,459,460,456,458,426,616,463,464,465,466,427,625,597,473,469,617,470,429,430,481,615,483,484,485,488,529,596,431,432,490,361,633,362,366,367,371,369,363,372,374,377,375,536,535,364,378,380,381,365,383,390,402,404,406,407,540,542,544,546,547,246,247,252,559,255,248,256,258,259,632,260,261,262,557,249,266,267,268,269,612,251,277,250,272,271,561,560,347,348,354,350,351,349,357,358,360,586,588,328,629,333,336,338,493,635,495,507,563,564,566,567,569,568/columns/aw_deep_link,product_name,aw_product_id,merchant_image_url,description,merchant_category,search_price,merchant_name,aw_image_url,currency,store_price,merchant_deep_link,category_name,brand_name/format/csv/delimiter/%2C/compression/gzip/';
+      
+      console.log('Fetching products from Awin datafeed...');
+      
+      const response = await fetch(feedUrl, {
+        headers: {
+          'Accept-Encoding': 'gzip',
+          'User-Agent': 'KortingDeal-Sync/1.0',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Awin API error: ${response.status}`);
+      }
+
+      const compressedData = new Uint8Array(await response.arrayBuffer());
+      console.log(`Received ${compressedData.length} bytes`);
+      
+      let csvText: string;
+      try {
+        const decompressed = gunzip(compressedData);
+        csvText = new TextDecoder().decode(decompressed);
+      } catch {
+        csvText = new TextDecoder().decode(compressedData);
+      }
+      
+      const parsedProducts = parseCSV(csvText);
+      console.log(`Parsed ${parsedProducts.length} products`);
+
+      allProducts = parsedProducts.map(p => ({
+        aw_product_id: p.aw_product_id || '',
+        product_name: p.product_name || '',
+        description: p.description,
+        merchant_id: p.merchant_id || '',
+        merchant_name: p.merchant_name || '',
+        aw_deep_link: p.aw_deep_link || '',
+        merchant_deep_link: p.merchant_deep_link || '',
+        aw_image_url: p.aw_image_url,
+        merchant_image_url: p.merchant_image_url,
+        search_price: p.search_price || '0',
+        store_price: p.store_price,
+        currency: p.currency || 'EUR',
+        merchant_category: p.merchant_category,
+        category_name: p.category_name,
+        brand_name: p.brand_name,
+      })).filter(p => p.aw_product_id && p.product_name);
+
+      console.log(`Filtered to ${allProducts.length} valid products`);
+
+      // Create sync log
       const { data: syncLog, error: syncLogError } = await supabase
         .from('sync_logs')
         .insert({
           sync_type: syncType,
           status: 'started',
-          total_products: 0,
+          total_products: allProducts.length,
           processed_products: 0,
           current_batch: 0,
-          total_batches: 0,
+          total_batches: Math.ceil(allProducts.length / 100),
         })
         .select()
         .single();
 
       if (syncLogError) throw new Error('Failed to create sync log');
       syncLogId = syncLog.id;
-    } else {
-      // Continuing sync - get latest started log
-      const { data: existingLog } = await supabase
-        .from('sync_logs')
-        .select('id')
-        .eq('status', 'started')
-        .order('started_at', { ascending: false })
-        .limit(1)
-        .single();
+
+      // Return product IDs for chunked processing
+      const productIds = allProducts.map(p => p.aw_product_id);
       
-      syncLogId = existingLog?.id;
-      if (!syncLogId) {
-        return new Response(
-          JSON.stringify({ error: 'No active sync found' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+      return new Response(
+        JSON.stringify({
+          success: true,
+          syncLogId,
+          totalProducts: allProducts.length,
+          totalBatches: Math.ceil(allProducts.length / 100),
+          productIds,
+          isComplete: false,
+          nextBatchIndex: 0,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Fetch products from feed
-    console.log('Fetching products from Awin datafeed...');
-    
-    const response = await fetch(feedUrl, {
-      headers: {
-        'Accept-Encoding': 'gzip',
-        'User-Agent': 'KortingDeal-Sync/1.0',
-      },
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Awin API error (${response.status}): ${errorText.substring(0, 200)}`);
+    // Process a single batch using cached product data
+    if (!cachedProducts || !Array.isArray(cachedProducts)) {
+      throw new Error('Missing cached products for batch processing');
     }
 
-    const compressedData = new Uint8Array(await response.arrayBuffer());
-    console.log(`Received ${compressedData.length} bytes of compressed data`);
-    
-    let csvText: string;
-    try {
-      const decompressed = gunzip(compressedData);
-      csvText = new TextDecoder().decode(decompressed);
-      console.log(`Decompressed to ${csvText.length} characters`);
-    } catch {
-      csvText = new TextDecoder().decode(compressedData);
-    }
-    
-    // Parse ALL products
-    const parsedProducts = parseCSV(csvText);
-    console.log(`Parsed ${parsedProducts.length} total products from CSV`);
-
-    // Map to AwinProduct interface
-    const allProducts: AwinProduct[] = parsedProducts.map(p => ({
-      aw_product_id: p.aw_product_id || '',
-      product_name: p.product_name || '',
-      description: p.description,
-      merchant_id: p.merchant_id || '',
-      merchant_name: p.merchant_name || '',
-      aw_deep_link: p.aw_deep_link || '',
-      merchant_deep_link: p.merchant_deep_link || '',
-      aw_image_url: p.aw_image_url,
-      merchant_image_url: p.merchant_image_url,
-      search_price: p.search_price || '0',
-      store_price: p.store_price,
-      currency: p.currency || 'EUR',
-      merchant_category: p.merchant_category,
-      category_name: p.category_name,
-      brand_name: p.brand_name,
-    })).filter(p => p.aw_product_id && p.product_name);
-
-    console.log(`Filtered to ${allProducts.length} valid products`);
+    console.log(`Processing batch with ${cachedProducts.length} products`);
 
     // Get category mappings
     const { data: categories } = await supabase
@@ -294,161 +298,59 @@ serve(async (req) => {
       .select('id, slug');
     const categoryMap = new Map(categories?.map(c => [c.slug, c.id]) || []);
 
-    // Process in batches of 300
-    const BATCH_SIZE = 300;
-    const totalBatches = Math.ceil(allProducts.length / BATCH_SIZE);
-    const startBatch = Math.floor(batchStart / BATCH_SIZE);
-    
-    // Update sync log with totals
-    await supabase
-      .from('sync_logs')
-      .update({
-        total_products: allProducts.length,
-        total_batches: totalBatches,
-      })
-      .eq('id', syncLogId);
+    const productDataBatch = cachedProducts.map((product: AwinProduct) => {
+      const categorySlug = mapCategory(product.merchant_category, product.category_name);
+      const categoryId = categoryMap.get(categorySlug) || categoryMap.get('overig');
+      const storePrice = parseFloat(product.store_price || '0');
+      const salePrice = parseFloat(product.search_price);
+      const discountPercentage = calculateDiscount(storePrice, salePrice);
+      const { variant } = extractVariant(product.product_name);
 
-    let productsAdded = 0;
-    let productsUpdated = 0;
+      return {
+        awin_product_id: product.aw_product_id,
+        original_title: product.product_name,
+        description: product.description?.substring(0, 5000),
+        image_url: product.aw_image_url || product.merchant_image_url,
+        product_url: product.merchant_deep_link,
+        affiliate_link: product.aw_deep_link,
+        seo_title: generateSeoTitle(product, seoTemplate),
+        seo_description: generateSeoDescription(product),
+        slug: generateSlug(product.product_name, product.aw_product_id),
+        original_price: storePrice > 0 ? storePrice : null,
+        sale_price: salePrice,
+        discount_percentage: discountPercentage > 0 ? discountPercentage : null,
+        currency: product.currency || 'EUR',
+        brand: product.brand_name || product.merchant_name,
+        merchant_category: product.merchant_category || product.category_name,
+        availability: 'in_stock',
+        category_id: categoryId,
+        is_active: true,
+        is_featured: discountPercentage >= 50,
+        last_synced_at: new Date().toISOString(),
+        variant_value: variant,
+      };
+    });
 
-    // Process batches (limit to 3 batches per invocation to avoid timeout)
-    const MAX_BATCHES_PER_CALL = 3;
-    const endBatch = Math.min(startBatch + MAX_BATCHES_PER_CALL, totalBatches);
-
-    for (let batchNum = startBatch; batchNum < endBatch; batchNum++) {
-      const batchStartIdx = batchNum * BATCH_SIZE;
-      const batch = allProducts.slice(batchStartIdx, batchStartIdx + BATCH_SIZE);
-      
-      console.log(`Processing batch ${batchNum + 1}/${totalBatches} (${batch.length} products)`);
-
-      const productDataBatch = batch.map(product => {
-        const categorySlug = mapCategory(product.merchant_category, product.category_name);
-        const categoryId = categoryMap.get(categorySlug) || categoryMap.get('overig');
-        const storePrice = parseFloat(product.store_price || '0');
-        const salePrice = parseFloat(product.search_price);
-        const discountPercentage = calculateDiscount(storePrice, salePrice);
-        const { variant } = extractVariant(product.product_name);
-
-        return {
-          awin_product_id: product.aw_product_id,
-          original_title: product.product_name,
-          description: product.description?.substring(0, 5000),
-          image_url: product.aw_image_url || product.merchant_image_url,
-          product_url: product.merchant_deep_link,
-          affiliate_link: product.aw_deep_link,
-          seo_title: generateSeoTitle(product, seoTemplate),
-          seo_description: generateSeoDescription(product),
-          slug: generateSlug(product.product_name, product.aw_product_id),
-          original_price: storePrice > 0 ? storePrice : null,
-          sale_price: salePrice,
-          discount_percentage: discountPercentage > 0 ? discountPercentage : null,
-          currency: product.currency || 'EUR',
-          brand: product.brand_name || product.merchant_name,
-          merchant_category: product.merchant_category || product.category_name,
-          availability: 'in_stock',
-          category_id: categoryId,
-          is_active: true,
-          is_featured: discountPercentage >= 50,
-          last_synced_at: new Date().toISOString(),
-          variant_value: variant,
-        };
+    // Upsert batch
+    const { error } = await supabase
+      .from('products')
+      .upsert(productDataBatch, {
+        onConflict: 'awin_product_id',
+        ignoreDuplicates: false,
       });
 
-      // Upsert batch - awin_product_id ensures no duplicates
-      const { error } = await supabase
-        .from('products')
-        .upsert(productDataBatch, {
-          onConflict: 'awin_product_id',
-          ignoreDuplicates: false,
-        });
-
-      if (error) {
-        console.error(`Error upserting batch ${batchNum + 1}:`, error);
-      } else {
-        productsAdded += batch.length;
-      }
-
-      // Update progress
-      const processedSoFar = (batchNum + 1) * BATCH_SIZE;
-      await supabase
-        .from('sync_logs')
-        .update({
-          processed_products: Math.min(processedSoFar, allProducts.length),
-          current_batch: batchNum + 1,
-        })
-        .eq('id', syncLogId);
+    if (error) {
+      console.error('Upsert error:', error);
+      throw new Error(`Failed to upsert batch: ${error.message}`);
     }
 
-    const nextBatchStart = endBatch * BATCH_SIZE;
-    const isComplete = endBatch >= totalBatches;
-
-    if (isComplete) {
-      // Link product variants
-      console.log('Linking product variants...');
-      const { data: productsWithVariants } = await supabase
-        .from('products')
-        .select('id, original_title, variant_value, brand')
-        .not('variant_value', 'is', null)
-        .is('parent_product_id', null);
-      
-      if (productsWithVariants && productsWithVariants.length > 0) {
-        const variantGroups = new Map<string, typeof productsWithVariants>();
-        
-        for (const product of productsWithVariants) {
-          const { baseName } = extractVariant(product.original_title);
-          const key = `${product.brand || ''}-${baseName}`.toLowerCase();
-          
-          if (!variantGroups.has(key)) {
-            variantGroups.set(key, []);
-          }
-          variantGroups.get(key)!.push(product);
-        }
-        
-        let variantsLinked = 0;
-        for (const [_, group] of variantGroups) {
-          if (group.length > 1) {
-            const parentId = group[0].id;
-            for (let i = 1; i < group.length; i++) {
-              await supabase
-                .from('products')
-                .update({ parent_product_id: parentId })
-                .eq('id', group[i].id);
-              variantsLinked++;
-            }
-          }
-        }
-        console.log(`Linked ${variantsLinked} product variants`);
-      }
-
-      // Mark sync as completed
-      await supabase
-        .from('sync_logs')
-        .update({
-          status: 'completed',
-          products_added: allProducts.length,
-          products_updated: productsUpdated,
-          completed_at: new Date().toISOString(),
-        })
-        .eq('id', syncLogId);
-
-      await supabase
-        .from('awin_settings')
-        .update({ last_sync_at: new Date().toISOString() })
-        .not('id', 'is', null);
-
-      console.log(`Sync completed. Total: ${allProducts.length} products`);
-    }
+    console.log(`Successfully upserted ${cachedProducts.length} products`);
 
     return new Response(
       JSON.stringify({
         success: true,
         syncLogId,
-        totalProducts: allProducts.length,
-        processedProducts: Math.min(endBatch * BATCH_SIZE, allProducts.length),
-        currentBatch: endBatch,
-        totalBatches,
-        isComplete,
-        nextBatchStart: isComplete ? null : nextBatchStart,
+        processedCount: cachedProducts.length,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
