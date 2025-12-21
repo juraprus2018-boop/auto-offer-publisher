@@ -1,5 +1,6 @@
 import { useState, useEffect, useLayoutEffect } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { ArrowLeft, ExternalLink, Tag, Store, Clock } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -39,12 +40,89 @@ const DealDetail = () => {
     }).format(price);
   };
 
+  const formatPriceNumber = (price: number | null) => {
+    if (price === null) return '0';
+    return price.toFixed(2);
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('nl-NL', {
       day: 'numeric',
       month: 'long',
       year: 'numeric',
     });
+  };
+
+  const formatISODate = (dateString: string) => {
+    return new Date(dateString).toISOString();
+  };
+
+  // Generate Product JSON-LD structured data
+  const generateProductJsonLd = () => {
+    if (!product) return null;
+
+    const jsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name: product.seo_title,
+      description: product.seo_description || product.description || `${product.seo_title} met korting`,
+      image: product.image_url || undefined,
+      brand: product.brand ? {
+        '@type': 'Brand',
+        name: product.brand,
+      } : undefined,
+      sku: product.awin_product_id,
+      category: product.category?.name,
+      offers: {
+        '@type': 'Offer',
+        url: `https://kortingdeal.nl/deal/${product.slug}`,
+        priceCurrency: product.currency || 'EUR',
+        price: formatPriceNumber(product.sale_price),
+        priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        availability: 'https://schema.org/InStock',
+        seller: product.advertiser ? {
+          '@type': 'Organization',
+          name: product.advertiser.name,
+        } : undefined,
+      },
+    };
+
+    return JSON.stringify(jsonLd);
+  };
+
+  // Generate BreadcrumbList JSON-LD
+  const generateBreadcrumbJsonLd = () => {
+    if (!product) return null;
+
+    const items = [
+      { name: 'Home', url: 'https://kortingdeal.nl/' },
+      { name: 'Deals', url: 'https://kortingdeal.nl/deals' },
+    ];
+
+    if (product.category) {
+      items.push({
+        name: product.category.name,
+        url: `https://kortingdeal.nl/categorie/${product.category.slug}`,
+      });
+    }
+
+    items.push({
+      name: product.seo_title,
+      url: `https://kortingdeal.nl/deal/${product.slug}`,
+    });
+
+    const jsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: items.map((item, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        name: item.name,
+        item: item.url,
+      })),
+    };
+
+    return JSON.stringify(jsonLd);
   };
 
   if (isLoading) {
@@ -70,6 +148,10 @@ const DealDetail = () => {
   if (error || !product) {
     return (
       <Layout>
+        <Helmet>
+          <title>Deal niet gevonden | KortingDeal.nl</title>
+          <meta name="robots" content="noindex, nofollow" />
+        </Helmet>
         <div className="container py-16 text-center">
           <h1 className="text-2xl font-bold mb-4">Deal niet gevonden</h1>
           <p className="text-muted-foreground mb-6">
@@ -91,18 +173,51 @@ const DealDetail = () => {
     ? product.original_price - product.sale_price
     : null;
 
+  const metaTitle = `${product.seo_title} | ${hasDiscount ? `-${product.discount_percentage}% Korting` : 'Deal'} | KortingDeal.nl`;
+  const metaDescription = product.seo_description || 
+    `${product.seo_title} nu met ${hasDiscount ? `${product.discount_percentage}% korting` : 'speciale aanbieding'}. ${product.brand ? `Van ${product.brand}.` : ''} Bekijk deze deal bij ${product.advertiser?.name || 'onze partner'}.`;
+
   return (
     <Layout>
-      {/* SEO Meta tags would be handled by a helmet component in production */}
-      <div className="container py-8">
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
+      <Helmet>
+        <title>{metaTitle}</title>
+        <meta name="description" content={metaDescription.substring(0, 160)} />
+        <meta name="keywords" content={`${product.seo_title}, ${product.brand || ''}, ${product.category?.name || ''}, korting, deal, aanbieding`} />
+        <link rel="canonical" href={`https://kortingdeal.nl/deal/${product.slug}`} />
+        
+        {/* Open Graph */}
+        <meta property="og:type" content="product" />
+        <meta property="og:title" content={metaTitle} />
+        <meta property="og:description" content={metaDescription.substring(0, 160)} />
+        <meta property="og:url" content={`https://kortingdeal.nl/deal/${product.slug}`} />
+        {product.image_url && <meta property="og:image" content={product.image_url} />}
+        <meta property="og:site_name" content="KortingDeal.nl" />
+        <meta property="og:locale" content="nl_NL" />
+        <meta property="product:price:amount" content={formatPriceNumber(product.sale_price)} />
+        <meta property="product:price:currency" content={product.currency || 'EUR'} />
+        
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={metaTitle} />
+        <meta name="twitter:description" content={metaDescription.substring(0, 160)} />
+        {product.image_url && <meta name="twitter:image" content={product.image_url} />}
+        
+        {/* Product JSON-LD */}
+        <script type="application/ld+json">{generateProductJsonLd()}</script>
+        
+        {/* Breadcrumb JSON-LD */}
+        <script type="application/ld+json">{generateBreadcrumbJsonLd()}</script>
+      </Helmet>
+
+      <article className="container py-8" itemScope itemType="https://schema.org/Product">
+        {/* Breadcrumb with semantic markup */}
+        <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
           <Link to="/" className="hover:text-foreground transition-colors">Home</Link>
-          <span>/</span>
+          <span aria-hidden="true">/</span>
           <Link to="/deals" className="hover:text-foreground transition-colors">Deals</Link>
           {product.category && (
             <>
-              <span>/</span>
+              <span aria-hidden="true">/</span>
               <Link
                 to={`/categorie/${product.category.slug}`}
                 className="hover:text-foreground transition-colors"
@@ -111,19 +226,21 @@ const DealDetail = () => {
               </Link>
             </>
           )}
-          <span>/</span>
-          <span className="text-foreground truncate max-w-[200px]">{product.seo_title}</span>
+          <span aria-hidden="true">/</span>
+          <span className="text-foreground truncate max-w-[200px]" aria-current="page">{product.seo_title}</span>
         </nav>
 
         <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
           {/* Product Image */}
-          <div className="relative">
+          <figure className="relative">
             <div className="aspect-square rounded-lg overflow-hidden bg-secondary">
               {product.image_url ? (
                 <img
                   src={product.image_url}
                   alt={product.seo_title}
                   className="w-full h-full object-cover"
+                  itemProp="image"
+                  loading="eager"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-muted-foreground">
@@ -138,21 +255,25 @@ const DealDetail = () => {
                 -{product.discount_percentage}%
               </Badge>
             )}
-          </div>
+          </figure>
 
           {/* Product Info */}
           <div className="space-y-6">
             {/* Brand */}
             {product.brand && (
-              <span className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                {product.brand}
+              <span className="text-sm font-medium text-muted-foreground uppercase tracking-wide" itemProp="brand" itemScope itemType="https://schema.org/Brand">
+                <span itemProp="name">{product.brand}</span>
               </span>
             )}
 
             {/* Title */}
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground">
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground" itemProp="name">
               {product.seo_title}
             </h1>
+
+            {/* Hidden SEO data */}
+            <meta itemProp="sku" content={product.awin_product_id} />
+            {product.category && <meta itemProp="category" content={product.category.name} />}
 
             {/* Category & Advertiser */}
             <div className="flex flex-wrap gap-3">
@@ -161,14 +282,14 @@ const DealDetail = () => {
                   to={`/categorie/${product.category.slug}`}
                   className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
                 >
-                  <Tag className="h-4 w-4" />
+                  <Tag className="h-4 w-4" aria-hidden="true" />
                   {product.category.name}
                 </Link>
               )}
               {product.advertiser && (
-                <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <Store className="h-4 w-4" />
-                  {product.advertiser.name}
+                <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground" itemProp="seller" itemScope itemType="https://schema.org/Organization">
+                  <Store className="h-4 w-4" aria-hidden="true" />
+                  <span itemProp="name">{product.advertiser.name}</span>
                 </span>
               )}
             </div>
@@ -176,8 +297,8 @@ const DealDetail = () => {
             {/* Size/Variant Selector */}
             {variants && variants.length > 1 && (
               <div className="space-y-2">
-                <h3 className="text-sm font-medium">Kies je maat</h3>
-                <div className="flex flex-wrap gap-2">
+                <h2 className="text-sm font-medium">Kies je maat</h2>
+                <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Productvarianten">
                   {variants.map((variant) => (
                     <Button
                       key={variant.id}
@@ -185,6 +306,8 @@ const DealDetail = () => {
                       size="sm"
                       onClick={() => setSelectedVariant(variant.id)}
                       className="min-w-[60px]"
+                      role="radio"
+                      aria-checked={selectedVariant === variant.id}
                     >
                       {variant.variant_value || 'Standaard'}
                     </Button>
@@ -194,10 +317,14 @@ const DealDetail = () => {
             )}
 
             {/* Pricing */}
-            <Card className="bg-secondary/50 border-0">
+            <Card className="bg-secondary/50 border-0" itemProp="offers" itemScope itemType="https://schema.org/Offer">
               <CardContent className="p-6">
+                <meta itemProp="priceCurrency" content={product.currency || 'EUR'} />
+                <meta itemProp="availability" content="https://schema.org/InStock" />
+                <link itemProp="url" href={`https://kortingdeal.nl/deal/${product.slug}`} />
+                
                 <div className="flex items-end gap-4 mb-3">
-                  <span className="text-4xl font-bold text-foreground">
+                  <span className="text-4xl font-bold text-foreground" itemProp="price" content={formatPriceNumber(selectedVariantData?.sale_price ?? product.sale_price)}>
                     {formatPrice(selectedVariantData?.sale_price ?? product.sale_price)}
                   </span>
                   {hasDiscount && (selectedVariantData?.original_price || product.original_price) && (
@@ -224,31 +351,34 @@ const DealDetail = () => {
               <a
                 href={selectedVariantData?.affiliate_link || product.affiliate_link}
                 target="_blank"
-                rel="noopener noreferrer nofollow"
+                rel="noopener noreferrer nofollow sponsored"
+                aria-label={`Bekijk ${product.seo_title} deal`}
               >
                 Bekijk Deal
-                <ExternalLink className="ml-2 h-5 w-5" />
+                <ExternalLink className="ml-2 h-5 w-5" aria-hidden="true" />
               </a>
             </Button>
 
             {/* Description */}
             {product.description && (
-              <div className="space-y-2">
+              <section className="space-y-2">
                 <h2 className="text-lg font-semibold">Beschrijving</h2>
-                <p className="text-muted-foreground leading-relaxed">
+                <p className="text-muted-foreground leading-relaxed" itemProp="description">
                   {product.description}
                 </p>
-              </div>
+              </section>
             )}
 
             {/* Meta Info */}
-            <div className="flex items-center gap-2 text-sm text-muted-foreground pt-4 border-t border-border">
-              <Clock className="h-4 w-4" />
-              Toegevoegd op {formatDate(product.created_at)}
-            </div>
+            <footer className="flex items-center gap-2 text-sm text-muted-foreground pt-4 border-t border-border">
+              <Clock className="h-4 w-4" aria-hidden="true" />
+              <time dateTime={formatISODate(product.created_at)}>
+                Toegevoegd op {formatDate(product.created_at)}
+              </time>
+            </footer>
           </div>
         </div>
-      </div>
+      </article>
     </Layout>
   );
 };
