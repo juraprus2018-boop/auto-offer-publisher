@@ -64,12 +64,12 @@ export function Footer() {
             <ul className="space-y-2">
               <li>
                 <span className="text-sm text-muted-foreground">
-                  Affiliate programma door Awin
+                  Dagelijks bijgewerkt
                 </span>
               </li>
               <li>
                 <span className="text-sm text-muted-foreground">
-                  Dagelijks bijgewerkt
+                  Beste deals van Nederland
                 </span>
               </li>
             </ul>
