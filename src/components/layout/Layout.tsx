@@ -4,13 +4,12 @@ import { Footer } from './Footer';
 
 interface LayoutProps {
   children: ReactNode;
-  onSearch?: (query: string) => void;
 }
 
-export function Layout({ children, onSearch }: LayoutProps) {
+export function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen flex flex-col">
-      <Header onSearch={onSearch} />
+      <Header />
       <main className="flex-1">
         {children}
       </main>

@@ -1,5 +1,5 @@
 import { useState, lazy, Suspense } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Search, Menu, X, Percent, User, LogOut, Check, Tag, LucideProps } from 'lucide-react';
 import dynamicIconImports from 'lucide-react/dynamicIconImports';
 import { Button } from '@/components/ui/button';
@@ -33,11 +33,8 @@ function DynamicIcon({ name, ...props }: DynamicIconProps) {
   );
 }
 
-interface HeaderProps {
-  onSearch?: (query: string) => void;
-}
-
-export function Header({ onSearch }: HeaderProps) {
+export function Header() {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { data: categories } = useCategories();
@@ -45,7 +42,10 @@ export function Header({ onSearch }: HeaderProps) {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    onSearch?.(searchQuery);
+    if (searchQuery.trim()) {
+      navigate(`/deals?search=${encodeURIComponent(searchQuery.trim())}`);
+      setMobileMenuOpen(false);
+    }
   };
 
   return (
