@@ -134,44 +134,52 @@ function calculateDiscount(originalPrice: number, salePrice: number): number {
   return Math.round(((originalPrice - salePrice) / originalPrice) * 100);
 }
 
-function mapCategory(merchantCategory: string | undefined): string {
-  if (!merchantCategory) return 'overig';
-
-  const categoryMap: Record<string, string> = {
-    'electronics': 'elektronica',
-    'computers': 'elektronica',
-    'phones': 'elektronica',
-    'fashion': 'mode',
-    'clothing': 'mode',
-    'shoes': 'mode',
-    'home': 'huis-tuin',
-    'garden': 'huis-tuin',
-    'furniture': 'huis-tuin',
-    'sports': 'sport-vrije-tijd',
-    'fitness': 'sport-vrije-tijd',
-    'outdoor': 'sport-vrije-tijd',
-    'beauty': 'beauty-gezondheid',
-    'health': 'beauty-gezondheid',
-    'cosmetics': 'beauty-gezondheid',
-    'toys': 'speelgoed-games',
-    'games': 'speelgoed-games',
-    'gaming': 'speelgoed-games',
-    'food': 'eten-drinken',
-    'drinks': 'eten-drinken',
-    'groceries': 'eten-drinken',
-    'automotive': 'auto-motor',
-    'car': 'auto-motor',
-    'motorcycle': 'auto-motor',
-    'travel': 'reizen',
-    'holidays': 'reizen',
-    'flights': 'reizen',
-  };
-
-  const lowerCategory = merchantCategory.toLowerCase();
-  for (const [key, value] of Object.entries(categoryMap)) {
-    if (lowerCategory.includes(key)) {
-      return value;
-    }
+function mapCategory(merchantCategory: string | undefined, categoryName: string | undefined): string {
+  const text = `${merchantCategory || ''} ${categoryName || ''}`.toLowerCase();
+  
+  // Elektronica
+  if (text.match(/electr|comput|phone|laptop|tablet|tv|audio|camera|gaming|console|smartphone|telefoon|pc|monitor/)) {
+    return 'elektronica';
+  }
+  
+  // Mode
+  if (text.match(/fashion|cloth|shoe|dress|shirt|pants|jacket|underwear|lingerie|bikini|swim|jeans|kleding|schoenen|mode|accessoir/)) {
+    return 'mode';
+  }
+  
+  // Huis & Tuin
+  if (text.match(/home|garden|furniture|kitchen|bathroom|bedroom|decor|lighting|tuin|huis|meubel|woon|interieur/)) {
+    return 'huis-tuin';
+  }
+  
+  // Sport & Vrije tijd
+  if (text.match(/sport|fitness|outdoor|camping|cycling|running|gym|fiets|hardloop/)) {
+    return 'sport-vrije-tijd';
+  }
+  
+  // Beauty & Gezondheid  
+  if (text.match(/beauty|health|cosmetic|makeup|skincare|parfum|wellness|gezondheid|verzorging/)) {
+    return 'beauty-gezondheid';
+  }
+  
+  // Speelgoed & Games
+  if (text.match(/toy|game|lego|puzzle|kids|children|baby|speelgoed|spel/)) {
+    return 'speelgoed-games';
+  }
+  
+  // Eten & Drinken
+  if (text.match(/food|drink|grocery|wine|beer|coffee|tea|chocolate|eten|drinken|voeding/)) {
+    return 'eten-drinken';
+  }
+  
+  // Auto & Motor
+  if (text.match(/auto|car|motor|bike|vehicle|tire|accessoir.*auto|onderdel/)) {
+    return 'auto-motor';
+  }
+  
+  // Reizen
+  if (text.match(/travel|hotel|flight|holiday|vacation|reis|vakantie|vlieg/)) {
+    return 'reizen';
   }
 
   return 'overig';
@@ -359,26 +367,28 @@ serve(async (req) => {
     let productsAdded = 0;
     let productsUpdated = 0;
 
-    // Limit products to process (to stay within CPU limits)
-    // We prioritize products with discounts
+    // Mix products for variety instead of just sorting by discount
+    // Shuffle first, then take a sample to get diverse products from different merchants
     const MAX_PRODUCTS = 500;
-    const sortedProducts = products
-      .map(p => ({
-        ...p,
-        discount: calculateDiscount(parseFloat(p.store_price || '0'), parseFloat(p.search_price))
-      }))
-      .sort((a, b) => b.discount - a.discount)
-      .slice(0, MAX_PRODUCTS);
+    
+    // Shuffle array for random mix
+    const shuffled = [...products].sort(() => Math.random() - 0.5);
+    
+    // Take first MAX_PRODUCTS from shuffled array
+    const selectedProducts = shuffled.slice(0, MAX_PRODUCTS).map(p => ({
+      ...p,
+      discount: calculateDiscount(parseFloat(p.store_price || '0'), parseFloat(p.search_price))
+    }));
 
-    console.log(`Processing ${sortedProducts.length} products (limited from ${products.length}, sorted by discount)`);
+    console.log(`Processing ${selectedProducts.length} products (random sample from ${products.length})`);
 
     // Process products in batches with bulk upsert
     const batchSize = 100;
-    for (let i = 0; i < sortedProducts.length; i += batchSize) {
-      const batch = sortedProducts.slice(i, i + batchSize);
+    for (let i = 0; i < selectedProducts.length; i += batchSize) {
+      const batch = selectedProducts.slice(i, i + batchSize);
       
       const productDataBatch = batch.map(product => {
-        const categorySlug = mapCategory(product.merchant_category || product.category_name);
+        const categorySlug = mapCategory(product.merchant_category, product.category_name);
         const categoryId = categoryMap.get(categorySlug) || categoryMap.get('overig');
 
         const storePrice = parseFloat(product.store_price || '0');
@@ -423,7 +433,7 @@ serve(async (req) => {
         productsAdded += batch.length;
       }
 
-      console.log(`Processed ${Math.min(i + batchSize, sortedProducts.length)} of ${sortedProducts.length} products`);
+      console.log(`Processed ${Math.min(i + batchSize, selectedProducts.length)} of ${selectedProducts.length} products`);
     }
 
     // Update sync log

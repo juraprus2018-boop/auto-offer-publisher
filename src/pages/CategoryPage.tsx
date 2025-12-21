@@ -13,12 +13,12 @@ const CategoryPage = () => {
   const { data: category, isLoading: categoryLoading } = useCategory(slug || '');
   
   const [filters, setFilters] = useState<ProductFiltersType>({
-    categorySlug: slug,
     page: 1,
     limit: 24,
   });
 
-  const { data, isLoading: productsLoading } = useProducts(filters);
+  // Pass category.id to useProducts for proper filtering
+  const { data, isLoading: productsLoading } = useProducts(filters, category?.id);
 
   if (categoryLoading) {
     return (
