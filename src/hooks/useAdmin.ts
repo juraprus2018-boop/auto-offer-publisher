@@ -85,11 +85,10 @@ interface SyncProgress {
   status: string;
 }
 
-interface AwinProduct {
+interface RawProduct {
   aw_product_id: string;
   product_name: string;
   description?: string;
-  merchant_id: string;
   merchant_name: string;
   aw_deep_link: string;
   merchant_deep_link: string;
@@ -101,6 +100,122 @@ interface AwinProduct {
   merchant_category?: string;
   category_name?: string;
   brand_name?: string;
+}
+
+interface ProcessedProduct {
+  awin_product_id: string;
+  original_title: string;
+  description?: string;
+  image_url?: string;
+  product_url: string;
+  affiliate_link: string;
+  seo_title: string;
+  seo_description?: string;
+  slug: string;
+  original_price?: number;
+  sale_price: number;
+  discount_percentage?: number;
+  currency: string;
+  brand?: string;
+  merchant_category?: string;
+  category_id?: string;
+  variant_value?: string;
+}
+
+function generateSlug(title: string, productId: string): string {
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .substring(0, 80);
+  return `${slug}-${productId.substring(0, 8)}`;
+}
+
+function calculateDiscount(originalPrice: number, salePrice: number): number {
+  if (!originalPrice || originalPrice <= salePrice) return 0;
+  return Math.round(((originalPrice - salePrice) / originalPrice) * 100);
+}
+
+function mapCategory(merchantCategory: string | undefined, categoryName: string | undefined): string {
+  const text = `${merchantCategory || ''} ${categoryName || ''}`.toLowerCase();
+  
+  if (text.match(/electr|comput|phone|laptop|tablet|tv|audio|camera|gaming|console|smartphone|telefoon|pc|monitor/)) {
+    return 'elektronica';
+  }
+  if (text.match(/fashion|cloth|shoe|dress|shirt|pants|jacket|underwear|lingerie|bikini|swim|jeans|kleding|schoenen|mode|accessoir/)) {
+    return 'mode';
+  }
+  if (text.match(/home|garden|furniture|kitchen|bathroom|bedroom|decor|lighting|tuin|huis|meubel|woon|interieur/)) {
+    return 'huis-tuin';
+  }
+  if (text.match(/sport|fitness|outdoor|camping|cycling|running|gym|fiets|hardloop/)) {
+    return 'sport-vrije-tijd';
+  }
+  if (text.match(/beauty|health|cosmetic|makeup|skincare|parfum|wellness|gezondheid|verzorging/)) {
+    return 'beauty-gezondheid';
+  }
+  if (text.match(/toy|game|lego|puzzle|kids|children|baby|speelgoed|spel/)) {
+    return 'speelgoed-games';
+  }
+  if (text.match(/food|drink|grocery|wine|beer|coffee|tea|chocolate|eten|drinken|voeding/)) {
+    return 'eten-drinken';
+  }
+  if (text.match(/auto|car|motor|bike|vehicle|tire|accessoir.*auto|onderdel/)) {
+    return 'auto-motor';
+  }
+  if (text.match(/travel|hotel|flight|holiday|vacation|reis|vakantie|vlieg/)) {
+    return 'reizen';
+  }
+
+  return 'overig';
+}
+
+function processProduct(
+  raw: RawProduct,
+  categoryMap: Map<string, string>,
+  seoTemplate: string
+): ProcessedProduct {
+  const storePrice = parseFloat(raw.store_price || '0');
+  const salePrice = parseFloat(raw.search_price);
+  const discountPercentage = calculateDiscount(storePrice, salePrice);
+  const categorySlug = mapCategory(raw.merchant_category, raw.category_name);
+  const categoryId = categoryMap.get(categorySlug) || categoryMap.get('overig');
+
+  // Extract variant
+  const sizeMatch = raw.product_name.match(/\s*,?\s*Maat\s+((?:string\s+)?[XXXSML]+(?:\s*,\s*top\s+[XXXSML]+)?)\s*$/i);
+  const variant = sizeMatch ? sizeMatch[1].trim() : null;
+
+  // Generate SEO title
+  let seoTitle = seoTemplate
+    .replace('[brand]', raw.brand_name || raw.merchant_name || '')
+    .replace('[title]', raw.product_name)
+    .replace('[discount]', discountPercentage.toString())
+    .replace('[merchant]', raw.merchant_name)
+    .replace(/\[\w+\]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .substring(0, 150);
+
+  return {
+    awin_product_id: raw.aw_product_id,
+    original_title: raw.product_name,
+    description: raw.description,
+    image_url: raw.aw_image_url || raw.merchant_image_url,
+    product_url: raw.merchant_deep_link,
+    affiliate_link: raw.aw_deep_link,
+    seo_title: seoTitle,
+    seo_description: `${discountPercentage > 0 ? `Bespaar ${discountPercentage}% op ` : ''}${raw.product_name}`.substring(0, 160),
+    slug: generateSlug(raw.product_name, raw.aw_product_id),
+    original_price: storePrice > 0 ? storePrice : undefined,
+    sale_price: salePrice,
+    discount_percentage: discountPercentage > 0 ? discountPercentage : undefined,
+    currency: raw.currency || 'EUR',
+    brand: raw.brand_name || raw.merchant_name,
+    merchant_category: raw.merchant_category || raw.category_name,
+    category_id: categoryId,
+    variant_value: variant,
+  };
 }
 
 export function useBatchSync() {
@@ -126,106 +241,87 @@ export function useBatchSync() {
       processedProducts: 0,
       currentBatch: 0,
       totalBatches: 0,
-      estimatedTimeRemaining: 'Producten ophalen...',
-      status: 'Producten ophalen van Awin...',
+      estimatedTimeRemaining: 'Voorbereiden...',
+      status: 'Settings ophalen...',
     });
 
     try {
-      // Step 1: Fetch all products from the edge function
-      console.log('Starting sync - fetching products...');
-      const { data: initData, error: initError } = await supabase.functions.invoke('awin-sync', {
-        body: { syncType: 'manual', batchIndex: 0 },
+      // Step 1: Get settings and categories
+      console.log('Fetching settings...');
+      const { data: settingsData, error: settingsError } = await supabase.functions.invoke('awin-sync', {
+        body: { action: 'get-settings' },
       });
 
-      if (initError) throw initError;
-      if (!initData.success) throw new Error('Failed to fetch products');
+      if (settingsError) throw settingsError;
 
-      const { syncLogId, totalProducts, totalBatches } = initData;
-      
-      console.log(`Fetched ${totalProducts} products, will process in ${totalBatches} batches`);
+      const seoTemplate = settingsData.settings?.seo_title_template || '[brand] [title] - [discount]% Korting | KortingDeal.nl';
+      const categoryMap = new Map<string, string>(
+        settingsData.categories.map((c: { id: string; slug: string }) => [c.slug, c.id])
+      );
 
-      // We need to re-fetch the products for processing
-      // Since the edge function already parsed them, we'll fetch the CSV again client-side
-      // Actually, let's use a simpler approach - fetch products in smaller chunks directly
+      // Step 2: Fetch products in chunks from edge function
+      const allProducts: RawProduct[] = [];
+      let chunkIndex = 0;
+      let hasMore = true;
+      const CHUNK_SIZE = 3000;
 
-      setProgress({
-        isRunning: true,
-        totalProducts,
-        processedProducts: 0,
-        currentBatch: 0,
-        totalBatches,
-        estimatedTimeRemaining: 'Berekenen...',
-        status: 'Feed opnieuw ophalen voor verwerking...',
-      });
+      setProgress(prev => ({ ...prev, status: 'Feed ophalen van Awin...' }));
 
-      // Fetch the feed URL from settings
-      const { data: settings } = await supabase.from('awin_settings').select('feed_url').single();
-      const feedUrl = settings?.feed_url || '';
+      while (hasMore && !abortRef.current) {
+        console.log(`Fetching chunk ${chunkIndex}...`);
 
-      // Fetch and parse CSV client-side
-      const response = await fetch(feedUrl);
-      if (!response.ok) throw new Error('Failed to fetch feed');
-      
-      const csvText = await response.text();
-      const lines = csvText.split('\n');
-      const headers = parseCSVLine(lines[0]);
-      
-      const allProducts: AwinProduct[] = [];
-      for (let i = 1; i < lines.length; i++) {
-        if (abortRef.current) break;
-        const line = lines[i];
-        if (!line.trim()) continue;
-        
-        const values = parseCSVLine(line);
-        if (values.length === headers.length) {
-          const product: Record<string, string> = {};
-          headers.forEach((header, idx) => {
-            product[header] = values[idx];
-          });
-          
-          if (product.aw_product_id && product.product_name) {
-            allProducts.push({
-              aw_product_id: product.aw_product_id,
-              product_name: product.product_name,
-              description: product.description,
-              merchant_id: product.merchant_id || '',
-              merchant_name: product.merchant_name || '',
-              aw_deep_link: product.aw_deep_link || '',
-              merchant_deep_link: product.merchant_deep_link || '',
-              aw_image_url: product.aw_image_url,
-              merchant_image_url: product.merchant_image_url,
-              search_price: product.search_price || '0',
-              store_price: product.store_price,
-              currency: product.currency || 'EUR',
-              merchant_category: product.merchant_category,
-              category_name: product.category_name,
-              brand_name: product.brand_name,
-            });
-          }
-        }
+        const { data: chunkData, error: chunkError } = await supabase.functions.invoke('fetch-feed', {
+          body: { chunkIndex, chunkSize: CHUNK_SIZE },
+        });
+
+        if (chunkError) throw chunkError;
+
+        allProducts.push(...chunkData.products);
+        hasMore = chunkData.hasMore;
+        chunkIndex++;
+
+        setProgress(prev => ({
+          ...prev,
+          status: `Feed ophalen... ${allProducts.length} producten`,
+          totalProducts: chunkData.totalProducts,
+        }));
       }
 
-      console.log(`Parsed ${allProducts.length} products client-side`);
+      if (abortRef.current) {
+        setProgress(prev => ({ ...prev, isRunning: false, status: 'Geannuleerd' }));
+        return;
+      }
 
-      // Process in batches of 100
+      console.log(`Total products fetched: ${allProducts.length}`);
+
+      // Step 3: Create sync log
+      const { data: syncLogData, error: syncLogError } = await supabase.functions.invoke('awin-sync', {
+        body: { action: 'create-sync-log', totalProducts: allProducts.length },
+      });
+
+      if (syncLogError) throw syncLogError;
+      const syncLogId = syncLogData.syncLogId;
+
+      // Step 4: Process and upsert in batches
       const BATCH_SIZE = 100;
-      const actualTotalBatches = Math.ceil(allProducts.length / BATCH_SIZE);
+      const totalBatches = Math.ceil(allProducts.length / BATCH_SIZE);
       let processedCount = 0;
 
-      for (let batchIdx = 0; batchIdx < actualTotalBatches; batchIdx++) {
+      for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
         if (abortRef.current) break;
 
         const batchProducts = allProducts.slice(batchIdx * BATCH_SIZE, (batchIdx + 1) * BATCH_SIZE);
-        
+        const processedBatch = batchProducts.map(p => processProduct(p, categoryMap, seoTemplate));
+
+        // Calculate time remaining
         const elapsed = (Date.now() - startTimeRef.current) / 1000;
         const productsPerSecond = processedCount > 0 ? processedCount / elapsed : 50;
         const remaining = allProducts.length - processedCount;
         const secondsRemaining = remaining / productsPerSecond;
-        
+
         let timeStr = '';
         if (secondsRemaining > 60) {
-          const minutes = Math.ceil(secondsRemaining / 60);
-          timeStr = `~${minutes} min`;
+          timeStr = `~${Math.ceil(secondsRemaining / 60)} min`;
         } else {
           timeStr = `~${Math.ceil(secondsRemaining)} sec`;
         }
@@ -235,18 +331,17 @@ export function useBatchSync() {
           totalProducts: allProducts.length,
           processedProducts: processedCount,
           currentBatch: batchIdx + 1,
-          totalBatches: actualTotalBatches,
+          totalBatches,
           estimatedTimeRemaining: timeStr,
-          status: `Batch ${batchIdx + 1}/${actualTotalBatches} verwerken...`,
+          status: `Batch ${batchIdx + 1}/${totalBatches} importeren...`,
         });
 
         // Send batch to edge function
         const { error: batchError } = await supabase.functions.invoke('awin-sync', {
-          body: { 
-            syncType: 'manual', 
-            batchIndex: batchIdx + 1,
+          body: {
+            action: 'upsert-batch',
+            products: processedBatch,
             syncLogId,
-            cachedProducts: batchProducts,
           },
         });
 
@@ -256,33 +351,36 @@ export function useBatchSync() {
           processedCount += batchProducts.length;
         }
 
-        // Update sync log progress
-        await supabase
-          .from('sync_logs')
-          .update({
-            processed_products: processedCount,
-            current_batch: batchIdx + 1,
-          })
-          .eq('id', syncLogId);
+        // Update progress every 5 batches
+        if (batchIdx % 5 === 0) {
+          await supabase.functions.invoke('awin-sync', {
+            body: {
+              action: 'update-progress',
+              syncLogId,
+              processedProducts: processedCount,
+              currentBatch: batchIdx + 1,
+            },
+          });
+        }
       }
 
-      // Mark sync as complete
-      await supabase
-        .from('sync_logs')
-        .update({
+      // Step 5: Complete sync
+      await supabase.functions.invoke('awin-sync', {
+        body: {
+          action: 'complete-sync',
+          syncLogId,
+          productsAdded: processedCount,
           status: abortRef.current ? 'cancelled' : 'completed',
-          products_added: processedCount,
-          completed_at: new Date().toISOString(),
-        })
-        .eq('id', syncLogId);
+        },
+      });
 
-      setProgress(prev => ({ 
-        ...prev, 
-        isRunning: false, 
+      setProgress(prev => ({
+        ...prev,
+        isRunning: false,
         processedProducts: processedCount,
         status: abortRef.current ? 'Geannuleerd' : 'Voltooid!',
       }));
-      
+
       queryClient.invalidateQueries({ queryKey: ['sync-logs'] });
       queryClient.invalidateQueries({ queryKey: ['awin-settings'] });
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -304,41 +402,13 @@ export function useBatchSync() {
   return { startSync, stopSync, progress };
 }
 
-// Helper function to parse CSV line
-function parseCSVLine(line: string): string[] {
-  const result: string[] = [];
-  let current = '';
-  let inQuotes = false;
-  
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    
-    if (char === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        current += '"';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if (char === ',' && !inQuotes) {
-      result.push(current.trim());
-      current = '';
-    } else {
-      current += char;
-    }
-  }
-  
-  result.push(current.trim());
-  return result;
-}
-
 export function useTriggerSync() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke('awin-sync', {
-        body: { syncType: 'manual' },
+        body: { action: 'get-settings' },
       });
 
       if (error) throw error;
