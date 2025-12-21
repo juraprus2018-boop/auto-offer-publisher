@@ -1,10 +1,62 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { gunzip } from "https://deno.land/x/compress@v0.4.5/gzip/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Parse CSV text to array of objects
+function parseCSV(csvText: string): Record<string, string>[] {
+  const lines = csvText.split('\n').filter(line => line.trim());
+  if (lines.length < 2) return [];
+  
+  // First line is headers
+  const headers = parseCSVLine(lines[0]);
+  const products: Record<string, string>[] = [];
+  
+  for (let i = 1; i < lines.length; i++) {
+    const values = parseCSVLine(lines[i]);
+    if (values.length === headers.length) {
+      const product: Record<string, string> = {};
+      headers.forEach((header, idx) => {
+        product[header] = values[idx];
+      });
+      products.push(product);
+    }
+  }
+  
+  return products;
+}
+
+// Parse a single CSV line handling quoted values
+function parseCSVLine(line: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  
+  result.push(current.trim());
+  return result;
+}
 
 interface AwinProduct {
   aw_product_id: string;
@@ -190,50 +242,79 @@ serve(async (req) => {
     const seoTemplate = settings?.seo_title_template || '[brand] [title] - [discount]% Korting | KortingDeal.nl';
 
     // Fetch products from Awin Product Feed API using direct datafeed URL
+    // Using CSV format with gzip compression (what Awin datafeeds provide)
     console.log('Fetching products from Awin datafeed...');
 
-    // Direct Awin datafeed URL - using JSON format instead of gzipped CSV
-    const awinUrl = 'https://productdata.awin.com/datafeed/download/apikey/cc2ecfcc47d7f52eb73791bc24cafe28/language/nl/cid/97,98,142,144,146,129,595,539,147,149,613,626,135,163,159,161,170,137,171,548,174,183,178,179,175,172,623,139,614,189,194,141,205,198,206,203,208,199,204,201,61,62,72,73,71,74,75,76,77,78,63,80,64,83,84,85,65,86,88,90,89,91,67,94,33,53,52,603,66,128,130,133,212,209,210,211,68,69,213,220,221,70,224,225,226,227,228,229,4,5,10,537,13,19,15,14,6,22,24,25,7,30,29,32,619,8,35,618,42,43,9,50,634,230,538,235,241,242,521,576,575,577,579,281,283,285,286,282,290,287,288,627,173,193,637,177,196,379,648,181,645,384,387,646,598,611,391,393,647,395,631,602,570,600,405,187,411,412,414,415,416,417,649,418,419,420,99,100,101,107,110,111,113,114,115,116,118,121,122,127,581,624,123,594,125,421,605,604,599,422,433,434,436,532,428,474,475,476,477,423,608,437,438,441,444,445,446,424,451,448,453,449,452,450,425,455,457,459,460,456,458,426,616,463,464,465,466,427,625,597,473,469,617,470,429,430,481,615,483,484,485,488,529,596,431,432,490,361,633,362,366,367,371,369,363,372,374,377,375,536,535,364,378,380,381,365,383,390,402,404,406,407,540,542,544,546,547,246,247,252,559,255,248,256,258,259,632,260,261,262,557,249,266,267,268,269,612,251,277,250,272,271,561,560,347,348,354,350,351,349,357,358,360,586,588,328,629,333,336,338,493,635,495,507,563,564,566,567,569,568/hasEnhancedFeeds/0/columns/aw_deep_link,product_name,aw_product_id,merchant_product_id,merchant_image_url,description,merchant_category,search_price,merchant_name,merchant_id,category_name,category_id,aw_image_url,currency,store_price,delivery_cost,merchant_deep_link,language,last_updated,display_price,data_feed_id/format/json/delimiter/%2C/adultcontent/1/';
-    
-    const awinUrls = [awinUrl];
+    const awinUrl = 'https://productdata.awin.com/datafeed/download/apikey/cc2ecfcc47d7f52eb73791bc24cafe28/language/nl/cid/97,98,142,144,146,129,595,539,147,149,613,626,135,163,159,161,170,137,171,548,174,183,178,179,175,172,623,139,614,189,194,141,205,198,206,203,208,199,204,201,61,62,72,73,71,74,75,76,77,78,63,80,64,83,84,85,65,86,88,90,89,91,67,94,33,53,52,603,66,128,130,133,212,209,210,211,68,69,213,220,221,70,224,225,226,227,228,229,4,5,10,537,13,19,15,14,6,22,24,25,7,30,29,32,619,8,35,618,42,43,9,50,634,230,538,235,241,242,521,576,575,577,579,281,283,285,286,282,290,287,288,627,173,193,637,177,196,379,648,181,645,384,387,646,598,611,391,393,647,395,631,602,570,600,405,187,411,412,414,415,416,417,649,418,419,420,99,100,101,107,110,111,113,114,115,116,118,121,122,127,581,624,123,594,125,421,605,604,599,422,433,434,436,532,428,474,475,476,477,423,608,437,438,441,444,445,446,424,451,448,453,449,452,450,425,455,457,459,460,456,458,426,616,463,464,465,466,427,625,597,473,469,617,470,429,430,481,615,483,484,485,488,529,596,431,432,490,361,633,362,366,367,371,369,363,372,374,377,375,536,535,364,378,380,381,365,383,390,402,404,406,407,540,542,544,546,547,246,247,252,559,255,248,256,258,259,632,260,261,262,557,249,266,267,268,269,612,251,277,250,272,271,561,560,347,348,354,350,351,349,357,358,360,586,588,328,629,333,336,338,493,635,495,507,563,564,566,567,569,568/columns/aw_deep_link,product_name,aw_product_id,merchant_image_url,description,merchant_category,search_price,merchant_name,aw_image_url,currency,store_price,merchant_deep_link,category_name,brand_name/format/csv/delimiter/%2C/compression/gzip/';
     
     let products: AwinProduct[] = [];
     let lastError: string | null = null;
     
-    for (const awinUrl of awinUrls) {
-      try {
-        console.log(`Trying Awin URL: ${awinUrl.substring(0, 80)}...`);
-        
-        const response = await fetch(awinUrl, {
-          headers: {
-            'Accept': 'application/json',
-            'User-Agent': 'KortingDeal-Sync/1.0',
-          },
-        });
+    try {
+      console.log('Fetching gzipped CSV from Awin...');
+      
+      const response = await fetch(awinUrl, {
+        headers: {
+          'Accept-Encoding': 'gzip',
+          'User-Agent': 'KortingDeal-Sync/1.0',
+        },
+      });
 
-        console.log(`Awin response status: ${response.status}`);
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.log(`Awin error response: ${errorText.substring(0, 500)}`);
-          lastError = `Awin API fout (${response.status}): ${errorText.substring(0, 200)}`;
-          continue;
-        }
-
+      console.log(`Awin response status: ${response.status}`);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log(`Awin error response: ${errorText.substring(0, 500)}`);
+        lastError = `Awin API fout (${response.status}): ${errorText.substring(0, 200)}`;
+      } else {
         const contentType = response.headers.get('content-type') || '';
-        console.log(`Content-Type: ${contentType}`);
+        const contentEncoding = response.headers.get('content-encoding') || '';
+        console.log(`Content-Type: ${contentType}, Content-Encoding: ${contentEncoding}`);
         
-        const data = await response.json();
-        products = Array.isArray(data) ? data : data.products || data.productFeed || [];
+        // Get response as arrayBuffer and decompress
+        const compressedData = new Uint8Array(await response.arrayBuffer());
+        console.log(`Received ${compressedData.length} bytes of compressed data`);
         
-        if (products.length > 0) {
-          console.log(`Fetched ${products.length} products from Awin`);
-          break;
+        let csvText: string;
+        try {
+          // Try to decompress
+          const decompressed = gunzip(compressedData);
+          csvText = new TextDecoder().decode(decompressed);
+          console.log(`Decompressed to ${csvText.length} characters`);
+        } catch (decompressError) {
+          // Maybe it's not compressed, try reading directly
+          console.log('Decompression failed, trying to read as plain text');
+          csvText = new TextDecoder().decode(compressedData);
         }
-      } catch (fetchError) {
-        console.error('Error fetching from Awin:', fetchError);
-        lastError = fetchError instanceof Error ? fetchError.message : 'Unknown fetch error';
+        
+        // Parse CSV
+        const parsedProducts = parseCSV(csvText);
+        console.log(`Parsed ${parsedProducts.length} products from CSV`);
+        
+        // Map to AwinProduct interface
+        products = parsedProducts.map(p => ({
+          aw_product_id: p.aw_product_id || '',
+          product_name: p.product_name || '',
+          description: p.description,
+          merchant_id: p.merchant_id || '',
+          merchant_name: p.merchant_name || '',
+          aw_deep_link: p.aw_deep_link || '',
+          merchant_deep_link: p.merchant_deep_link || '',
+          aw_image_url: p.aw_image_url,
+          merchant_image_url: p.merchant_image_url,
+          search_price: p.search_price || '0',
+          store_price: p.store_price,
+          currency: p.currency || 'EUR',
+          merchant_category: p.merchant_category,
+          category_name: p.category_name,
+          brand_name: p.brand_name,
+        })).filter(p => p.aw_product_id && p.product_name);
+        
+        console.log(`Filtered to ${products.length} valid products`);
       }
+    } catch (fetchError) {
+      console.error('Error fetching from Awin:', fetchError);
+      lastError = fetchError instanceof Error ? fetchError.message : 'Unknown fetch error';
     }
 
     // If no products fetched, update sync log with detailed error
@@ -271,73 +352,71 @@ serve(async (req) => {
     let productsAdded = 0;
     let productsUpdated = 0;
 
-    // Process products in batches
-    const batchSize = 50;
-    for (let i = 0; i < products.length; i += batchSize) {
-      const batch = products.slice(i, i + batchSize);
+    // Limit products to process (to stay within CPU limits)
+    // We prioritize products with discounts
+    const MAX_PRODUCTS = 500;
+    const sortedProducts = products
+      .map(p => ({
+        ...p,
+        discount: calculateDiscount(parseFloat(p.store_price || '0'), parseFloat(p.search_price))
+      }))
+      .sort((a, b) => b.discount - a.discount)
+      .slice(0, MAX_PRODUCTS);
+
+    console.log(`Processing ${sortedProducts.length} products (limited from ${products.length}, sorted by discount)`);
+
+    // Process products in batches with bulk upsert
+    const batchSize = 100;
+    for (let i = 0; i < sortedProducts.length; i += batchSize) {
+      const batch = sortedProducts.slice(i, i + batchSize);
       
-      for (const product of batch) {
-        try {
-          const categorySlug = mapCategory(product.merchant_category || product.category_name);
-          const categoryId = categoryMap.get(categorySlug) || categoryMap.get('overig');
+      const productDataBatch = batch.map(product => {
+        const categorySlug = mapCategory(product.merchant_category || product.category_name);
+        const categoryId = categoryMap.get(categorySlug) || categoryMap.get('overig');
 
-          const storePrice = parseFloat(product.store_price || '0');
-          const salePrice = parseFloat(product.search_price);
-          const discountPercentage = calculateDiscount(storePrice, salePrice);
+        const storePrice = parseFloat(product.store_price || '0');
+        const salePrice = parseFloat(product.search_price);
+        const discountPercentage = product.discount;
 
-          const productData = {
-            awin_product_id: product.aw_product_id,
-            original_title: product.product_name,
-            description: product.description?.substring(0, 5000),
-            image_url: product.aw_image_url || product.merchant_image_url,
-            product_url: product.merchant_deep_link,
-            affiliate_link: product.aw_deep_link,
-            seo_title: generateSeoTitle(product, seoTemplate),
-            seo_description: generateSeoDescription(product),
-            slug: generateSlug(product.product_name, product.aw_product_id),
-            original_price: storePrice > 0 ? storePrice : null,
-            sale_price: salePrice,
-            discount_percentage: discountPercentage > 0 ? discountPercentage : null,
-            currency: product.currency || 'EUR',
-            brand: product.brand_name || product.merchant_name,
-            merchant_category: product.merchant_category || product.category_name,
-            availability: product.in_stock === '1' || product.in_stock === 'true' ? 'in_stock' : 'in_stock',
-            category_id: categoryId,
-            is_active: true,
-            is_featured: discountPercentage >= 50,
-            last_synced_at: new Date().toISOString(),
-          };
+        return {
+          awin_product_id: product.aw_product_id,
+          original_title: product.product_name,
+          description: product.description?.substring(0, 5000),
+          image_url: product.aw_image_url || product.merchant_image_url,
+          product_url: product.merchant_deep_link,
+          affiliate_link: product.aw_deep_link,
+          seo_title: generateSeoTitle(product, seoTemplate),
+          seo_description: generateSeoDescription(product),
+          slug: generateSlug(product.product_name, product.aw_product_id),
+          original_price: storePrice > 0 ? storePrice : null,
+          sale_price: salePrice,
+          discount_percentage: discountPercentage > 0 ? discountPercentage : null,
+          currency: product.currency || 'EUR',
+          brand: product.brand_name || product.merchant_name,
+          merchant_category: product.merchant_category || product.category_name,
+          availability: 'in_stock',
+          category_id: categoryId,
+          is_active: true,
+          is_featured: discountPercentage >= 50,
+          last_synced_at: new Date().toISOString(),
+        };
+      });
 
-          // Upsert product
-          const { error } = await supabase
-            .from('products')
-            .upsert(productData, {
-              onConflict: 'awin_product_id',
-              ignoreDuplicates: false,
-            });
+      // Bulk upsert batch
+      const { error } = await supabase
+        .from('products')
+        .upsert(productDataBatch, {
+          onConflict: 'awin_product_id',
+          ignoreDuplicates: false,
+        });
 
-          if (error) {
-            console.error(`Error upserting product ${product.aw_product_id}:`, error);
-          } else {
-            // Check if it was an insert or update
-            const { data: existing } = await supabase
-              .from('products')
-              .select('created_at, updated_at')
-              .eq('awin_product_id', product.aw_product_id)
-              .single();
-
-            if (existing && existing.created_at === existing.updated_at) {
-              productsAdded++;
-            } else {
-              productsUpdated++;
-            }
-          }
-        } catch (productError) {
-          console.error(`Error processing product:`, productError);
-        }
+      if (error) {
+        console.error(`Error upserting batch:`, error);
+      } else {
+        productsAdded += batch.length;
       }
 
-      console.log(`Processed ${Math.min(i + batchSize, products.length)} of ${products.length} products`);
+      console.log(`Processed ${Math.min(i + batchSize, sortedProducts.length)} of ${sortedProducts.length} products`);
     }
 
     // Update sync log
