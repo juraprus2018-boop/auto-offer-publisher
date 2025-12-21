@@ -2,42 +2,42 @@
 @tailwind components;
 @tailwind utilities;
 
-/* KortingDeal.nl Design System - Modern & Minimalistisch */
+/* KortingDeal.nl Design System - iBood Inspired Theme */
 
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap');
 
 @layer base {
   :root {
-    /* Background colors */
-    --background: 0 0% 99%;
-    --foreground: 220 20% 10%;
+    /* Background - Light cream/beige like iBood */
+    --background: 30 30% 98%;
+    --foreground: 240 20% 20%;
 
-    /* Card colors */
+    /* Card colors - White cards */
     --card: 0 0% 100%;
-    --card-foreground: 220 20% 10%;
+    --card-foreground: 240 20% 20%;
 
     /* Popover colors */
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 10%;
+    --popover-foreground: 240 20% 20%;
 
-    /* Primary - Orange/Red for deals urgency */
-    --primary: 14 100% 57%;
+    /* Primary - iBood Orange/Red */
+    --primary: 16 100% 50%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary - Neutral gray */
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 220 20% 20%;
+    /* Secondary - Soft purple like iBood accents */
+    --secondary: 250 30% 96%;
+    --secondary-foreground: 250 30% 30%;
 
     /* Muted colors */
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 10% 50%;
+    --muted: 250 20% 95%;
+    --muted-foreground: 240 10% 50%;
 
-    /* Accent - Teal for CTAs */
-    --accent: 168 76% 42%;
+    /* Accent - Purple for secondary actions */
+    --accent: 260 60% 55%;
     --accent-foreground: 0 0% 100%;
 
-    /* Success - Green for savings */
-    --success: 142 76% 36%;
+    /* Success - Bright green for discounts (iBood style) */
+    --success: 145 80% 42%;
     --success-foreground: 0 0% 100%;
 
     /* Destructive */
@@ -45,72 +45,79 @@
     --destructive-foreground: 0 0% 100%;
 
     /* Border and input */
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 14 100% 57%;
+    --border: 250 20% 90%;
+    --input: 250 20% 90%;
+    --ring: 16 100% 50%;
 
-    --radius: 0.75rem;
+    --radius: 1rem;
 
-    /* Sidebar */
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 220 10% 30%;
-    --sidebar-primary: 14 100% 57%;
+    /* Sidebar - Dark purple like iBood header */
+    --sidebar-background: 250 40% 20%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 16 100% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 14% 96%;
-    --sidebar-accent-foreground: 220 20% 20%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 14 100% 57%;
+    --sidebar-accent: 250 40% 30%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 250 40% 25%;
+    --sidebar-ring: 16 100% 50%;
 
-    /* Custom deal colors */
-    --deal-hot: 0 84% 60%;
-    --deal-badge: 14 100% 57%;
-    --discount: 142 76% 36%;
+    /* Custom deal colors - iBood inspired */
+    --deal-hot: 16 100% 50%;
+    --deal-badge: 16 100% 50%;
+    --discount: 145 80% 42%;
+    
+    /* Header - Dark blue/purple */
+    --header: 250 40% 20%;
+    --header-foreground: 0 0% 100%;
   }
 
   .dark {
-    --background: 220 20% 7%;
+    --background: 250 30% 8%;
     --foreground: 0 0% 95%;
 
-    --card: 220 20% 10%;
+    --card: 250 30% 12%;
     --card-foreground: 0 0% 95%;
 
-    --popover: 220 20% 10%;
+    --popover: 250 30% 12%;
     --popover-foreground: 0 0% 95%;
 
-    --primary: 14 100% 57%;
+    --primary: 16 100% 55%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 14% 15%;
+    --secondary: 250 30% 18%;
     --secondary-foreground: 0 0% 90%;
 
-    --muted: 220 14% 15%;
-    --muted-foreground: 220 10% 55%;
+    --muted: 250 30% 15%;
+    --muted-foreground: 250 15% 55%;
 
-    --accent: 168 76% 42%;
+    --accent: 260 60% 60%;
     --accent-foreground: 0 0% 100%;
 
-    --success: 142 76% 40%;
+    --success: 145 80% 45%;
     --success-foreground: 0 0% 100%;
 
-    --destructive: 0 62% 30%;
+    --destructive: 0 62% 40%;
     --destructive-foreground: 0 0% 95%;
 
-    --border: 220 14% 18%;
-    --input: 220 14% 18%;
-    --ring: 14 100% 57%;
+    --border: 250 30% 20%;
+    --input: 250 30% 20%;
+    --ring: 16 100% 55%;
 
-    --sidebar-background: 220 20% 8%;
-    --sidebar-foreground: 0 0% 90%;
-    --sidebar-primary: 14 100% 57%;
+    --sidebar-background: 250 40% 12%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 16 100% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 14% 15%;
-    --sidebar-accent-foreground: 0 0% 90%;
-    --sidebar-border: 220 14% 18%;
-    --sidebar-ring: 14 100% 57%;
+    --sidebar-accent: 250 40% 20%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 250 40% 18%;
+    --sidebar-ring: 16 100% 55%;
 
-    --deal-hot: 0 84% 55%;
-    --deal-badge: 14 100% 57%;
-    --discount: 142 76% 45%;
+    --deal-hot: 16 100% 55%;
+    --deal-badge: 16 100% 55%;
+    --discount: 145 80% 50%;
+    
+    --header: 250 40% 15%;
+    --header-foreground: 0 0% 100%;
   }
 }
 
@@ -120,11 +127,28 @@
   }
 
   html {
-    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-family: 'Nunito', system-ui, sans-serif;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
+  }
+}
+
+@layer components {
+  /* iBood style discount badge */
+  .discount-badge {
+    @apply bg-success text-success-foreground font-bold rounded-full px-3 py-1 text-sm;
+  }
+  
+  /* iBood style "Nu!" price label */
+  .price-now {
+    @apply text-primary font-extrabold;
+  }
+  
+  /* iBood style card hover */
+  .deal-card {
+    @apply transition-all duration-300 hover:shadow-xl hover:-translate-y-1;
   }
 }
 
@@ -143,6 +167,10 @@
 
   .animate-pulse-subtle {
     animation: pulseSubtle 2s ease-in-out infinite;
+  }
+  
+  .animate-bounce-in {
+    animation: bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
   }
 }
 
@@ -172,5 +200,22 @@
   }
   50% {
     opacity: 0.8;
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
   }
 }
