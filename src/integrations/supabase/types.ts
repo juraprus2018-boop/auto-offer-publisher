@@ -57,6 +57,7 @@ export type Database = {
         Row: {
           api_key_configured: boolean | null
           created_at: string
+          feed_url: string | null
           id: string
           last_sync_at: string | null
           publisher_id: string | null
@@ -68,6 +69,7 @@ export type Database = {
         Insert: {
           api_key_configured?: boolean | null
           created_at?: string
+          feed_url?: string | null
           id?: string
           last_sync_at?: string | null
           publisher_id?: string | null
@@ -79,6 +81,7 @@ export type Database = {
         Update: {
           api_key_configured?: boolean | null
           created_at?: string
+          feed_url?: string | null
           id?: string
           last_sync_at?: string | null
           publisher_id?: string | null
@@ -234,36 +237,48 @@ export type Database = {
       sync_logs: {
         Row: {
           completed_at: string | null
+          current_batch: number | null
           error_message: string | null
           id: string
+          processed_products: number | null
           products_added: number | null
           products_removed: number | null
           products_updated: number | null
           started_at: string
           status: string
           sync_type: string
+          total_batches: number | null
+          total_products: number | null
         }
         Insert: {
           completed_at?: string | null
+          current_batch?: number | null
           error_message?: string | null
           id?: string
+          processed_products?: number | null
           products_added?: number | null
           products_removed?: number | null
           products_updated?: number | null
           started_at?: string
           status: string
           sync_type: string
+          total_batches?: number | null
+          total_products?: number | null
         }
         Update: {
           completed_at?: string | null
+          current_batch?: number | null
           error_message?: string | null
           id?: string
+          processed_products?: number | null
           products_added?: number | null
           products_removed?: number | null
           products_updated?: number | null
           started_at?: string
           status?: string
           sync_type?: string
+          total_batches?: number | null
+          total_products?: number | null
         }
         Relationships: []
       }

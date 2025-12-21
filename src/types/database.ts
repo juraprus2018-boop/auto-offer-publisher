@@ -62,6 +62,10 @@ export interface SyncLog {
   error_message: string | null;
   started_at: string;
   completed_at: string | null;
+  total_products?: number;
+  processed_products?: number;
+  current_batch?: number;
+  total_batches?: number;
 }
 
 export interface AwinSettings {
@@ -72,6 +76,7 @@ export interface AwinSettings {
   sync_interval_hours: number;
   last_sync_at: string | null;
   seo_title_template: string;
+  feed_url: string | null;
   created_at: string;
   updated_at: string;
 }
