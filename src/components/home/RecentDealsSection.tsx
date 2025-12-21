@@ -1,11 +1,19 @@
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProductGrid } from '@/components/products/ProductGrid';
 import { useRecentProducts } from '@/hooks/useProducts';
+import { shuffleNoDuplicateCategories } from '@/lib/shuffleProducts';
 
 export function RecentDealsSection() {
-  const { data: products, isLoading } = useRecentProducts(8);
+  const { data: products, isLoading } = useRecentProducts(12);
+  
+  // Shuffle to avoid consecutive same-category products
+  const shuffledProducts = useMemo(() => 
+    products ? shuffleNoDuplicateCategories(products).slice(0, 8) : [],
+    [products]
+  );
 
   return (
     <section className="py-12">
@@ -28,7 +36,7 @@ export function RecentDealsSection() {
           </Button>
         </div>
 
-        <ProductGrid products={products || []} isLoading={isLoading} />
+        <ProductGrid products={shuffledProducts} isLoading={isLoading} />
 
         <div className="mt-8 text-center sm:hidden">
           <Button asChild variant="outline" className="gap-2">
