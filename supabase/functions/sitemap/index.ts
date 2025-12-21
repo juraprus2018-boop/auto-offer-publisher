@@ -6,6 +6,7 @@ const corsHeaders = {
 };
 
 const SITE_URL = 'https://kortingdeal.nl';
+const FUNCTION_URL = 'https://ugzhiztkzeyhpybnsgnj.supabase.co/functions/v1/sitemap';
 const PRODUCTS_PER_SITEMAP = 10000;
 
 Deno.serve(async (req) => {
@@ -85,11 +86,11 @@ async function generateSitemapIndex(supabase: any): Promise<string> {
   let sitemaps = `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <sitemap>
-    <loc>${SITE_URL}/api/sitemap?type=static</loc>
+    <loc>${FUNCTION_URL}?type=static</loc>
     <lastmod>${now}</lastmod>
   </sitemap>
   <sitemap>
-    <loc>${SITE_URL}/api/sitemap?type=categories</loc>
+    <loc>${FUNCTION_URL}?type=categories</loc>
     <lastmod>${now}</lastmod>
   </sitemap>`;
 
@@ -97,7 +98,7 @@ async function generateSitemapIndex(supabase: any): Promise<string> {
   for (let i = 1; i <= productSitemapCount; i++) {
     sitemaps += `
   <sitemap>
-    <loc>${SITE_URL}/api/sitemap?type=products&amp;page=${i}</loc>
+    <loc>${FUNCTION_URL}?type=products&amp;page=${i}</loc>
     <lastmod>${now}</lastmod>
   </sitemap>`;
   }
