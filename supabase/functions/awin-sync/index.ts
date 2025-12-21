@@ -15,10 +15,12 @@ interface AwinProduct {
   aw_deep_link: string;
   merchant_deep_link: string;
   aw_image_url?: string;
+  merchant_image_url?: string;
   search_price: string;
-  rrp_price?: string;
+  store_price?: string;
   currency: string;
   merchant_category?: string;
+  category_name?: string;
   brand_name?: string;
   in_stock?: string;
 }
@@ -34,13 +36,12 @@ function generateSlug(title: string, productId: string): string {
 }
 
 function generateSeoTitle(product: AwinProduct, template: string): string {
-  const discountPercent = calculateDiscount(
-    parseFloat(product.rrp_price || '0'),
-    parseFloat(product.search_price)
-  );
+  const storePrice = parseFloat(product.store_price || '0');
+  const searchPrice = parseFloat(product.search_price);
+  const discountPercent = calculateDiscount(storePrice, searchPrice);
 
   let seoTitle = template
-    .replace('[brand]', product.brand_name || '')
+    .replace('[brand]', product.brand_name || product.merchant_name || '')
     .replace('[title]', product.product_name)
     .replace('[discount]', discountPercent.toString())
     .replace('[merchant]', product.merchant_name);
@@ -57,10 +58,9 @@ function generateSeoTitle(product: AwinProduct, template: string): string {
 }
 
 function generateSeoDescription(product: AwinProduct): string {
-  const discount = calculateDiscount(
-    parseFloat(product.rrp_price || '0'),
-    parseFloat(product.search_price)
-  );
+  const storePrice = parseFloat(product.store_price || '0');
+  const searchPrice = parseFloat(product.search_price);
+  const discount = calculateDiscount(storePrice, searchPrice);
 
   let desc = product.description || product.product_name;
   
@@ -189,17 +189,13 @@ serve(async (req) => {
 
     const seoTemplate = settings?.seo_title_template || '[brand] [title] - [discount]% Korting | KortingDeal.nl';
 
-    // Fetch products from Awin Product Feed API
-    // The correct format for Awin datafeed downloads
-    console.log('Fetching products from Awin API...');
+    // Fetch products from Awin Product Feed API using direct datafeed URL
+    console.log('Fetching products from Awin datafeed...');
 
-    // Try multiple Awin API endpoints
-    const awinUrls = [
-      // Standard datafeed download URL
-      `https://productdata.awin.com/datafeed/download/apikey/${awinApiKey}/language/nl/fid/${awinPublisherId}/format/json/`,
-      // Alternative: comma-separated feed IDs
-      `https://productdata.awin.com/datafeed/download/apikey/${awinApiKey}/language/nl/fid/${awinPublisherId}/format/json/columns/aw_product_id,product_name,description,merchant_id,merchant_name,aw_deep_link,merchant_deep_link,aw_image_url,search_price,rrp_price,currency,merchant_category,brand_name,in_stock/`,
-    ];
+    // Direct Awin datafeed URL - using JSON format instead of gzipped CSV
+    const awinUrl = 'https://productdata.awin.com/datafeed/download/apikey/cc2ecfcc47d7f52eb73791bc24cafe28/language/nl/cid/97,98,142,144,146,129,595,539,147,149,613,626,135,163,159,161,170,137,171,548,174,183,178,179,175,172,623,139,614,189,194,141,205,198,206,203,208,199,204,201,61,62,72,73,71,74,75,76,77,78,63,80,64,83,84,85,65,86,88,90,89,91,67,94,33,53,52,603,66,128,130,133,212,209,210,211,68,69,213,220,221,70,224,225,226,227,228,229,4,5,10,537,13,19,15,14,6,22,24,25,7,30,29,32,619,8,35,618,42,43,9,50,634,230,538,235,241,242,521,576,575,577,579,281,283,285,286,282,290,287,288,627,173,193,637,177,196,379,648,181,645,384,387,646,598,611,391,393,647,395,631,602,570,600,405,187,411,412,414,415,416,417,649,418,419,420,99,100,101,107,110,111,113,114,115,116,118,121,122,127,581,624,123,594,125,421,605,604,599,422,433,434,436,532,428,474,475,476,477,423,608,437,438,441,444,445,446,424,451,448,453,449,452,450,425,455,457,459,460,456,458,426,616,463,464,465,466,427,625,597,473,469,617,470,429,430,481,615,483,484,485,488,529,596,431,432,490,361,633,362,366,367,371,369,363,372,374,377,375,536,535,364,378,380,381,365,383,390,402,404,406,407,540,542,544,546,547,246,247,252,559,255,248,256,258,259,632,260,261,262,557,249,266,267,268,269,612,251,277,250,272,271,561,560,347,348,354,350,351,349,357,358,360,586,588,328,629,333,336,338,493,635,495,507,563,564,566,567,569,568/hasEnhancedFeeds/0/columns/aw_deep_link,product_name,aw_product_id,merchant_product_id,merchant_image_url,description,merchant_category,search_price,merchant_name,merchant_id,category_name,category_id,aw_image_url,currency,store_price,delivery_cost,merchant_deep_link,language,last_updated,display_price,data_feed_id/format/json/delimiter/%2C/adultcontent/1/';
+    
+    const awinUrls = [awinUrl];
     
     let products: AwinProduct[] = [];
     let lastError: string | null = null;
@@ -282,30 +278,30 @@ serve(async (req) => {
       
       for (const product of batch) {
         try {
-          const categorySlug = mapCategory(product.merchant_category);
+          const categorySlug = mapCategory(product.merchant_category || product.category_name);
           const categoryId = categoryMap.get(categorySlug) || categoryMap.get('overig');
 
-          const originalPrice = parseFloat(product.rrp_price || '0');
+          const storePrice = parseFloat(product.store_price || '0');
           const salePrice = parseFloat(product.search_price);
-          const discountPercentage = calculateDiscount(originalPrice, salePrice);
+          const discountPercentage = calculateDiscount(storePrice, salePrice);
 
           const productData = {
             awin_product_id: product.aw_product_id,
             original_title: product.product_name,
             description: product.description?.substring(0, 5000),
-            image_url: product.aw_image_url,
+            image_url: product.aw_image_url || product.merchant_image_url,
             product_url: product.merchant_deep_link,
             affiliate_link: product.aw_deep_link,
             seo_title: generateSeoTitle(product, seoTemplate),
             seo_description: generateSeoDescription(product),
             slug: generateSlug(product.product_name, product.aw_product_id),
-            original_price: originalPrice > 0 ? originalPrice : null,
+            original_price: storePrice > 0 ? storePrice : null,
             sale_price: salePrice,
             discount_percentage: discountPercentage > 0 ? discountPercentage : null,
             currency: product.currency || 'EUR',
-            brand: product.brand_name,
-            merchant_category: product.merchant_category,
-            availability: product.in_stock === '1' ? 'in_stock' : 'out_of_stock',
+            brand: product.brand_name || product.merchant_name,
+            merchant_category: product.merchant_category || product.category_name,
+            availability: product.in_stock === '1' || product.in_stock === 'true' ? 'in_stock' : 'in_stock',
             category_id: categoryId,
             is_active: true,
             is_featured: discountPercentage >= 50,
