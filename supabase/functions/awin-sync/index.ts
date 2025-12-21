@@ -93,6 +93,20 @@ function generateSlug(title: string, productId: string): string {
   return `${slug}-${productId.substring(0, 8)}`;
 }
 
+// Extract size/variant from product title
+function extractVariant(title: string): { baseName: string; variant: string | null } {
+  // Match patterns like "Maat XS", "Maat M", "Maat string XL, top S"
+  const sizeMatch = title.match(/\s*,?\s*Maat\s+((?:string\s+)?[XXXSML]+(?:\s*,\s*top\s+[XXXSML]+)?)\s*$/i);
+  
+  if (sizeMatch) {
+    const variant = sizeMatch[1].trim();
+    const baseName = title.replace(sizeMatch[0], '').trim();
+    return { baseName, variant };
+  }
+  
+  return { baseName: title, variant: null };
+}
+
 function generateSeoTitle(product: AwinProduct, template: string): string {
   const storePrice = parseFloat(product.store_price || '0');
   const searchPrice = parseFloat(product.search_price);
@@ -394,6 +408,9 @@ serve(async (req) => {
         const storePrice = parseFloat(product.store_price || '0');
         const salePrice = parseFloat(product.search_price);
         const discountPercentage = product.discount;
+        
+        // Extract variant info from title
+        const { baseName, variant } = extractVariant(product.product_name);
 
         return {
           awin_product_id: product.aw_product_id,
@@ -416,6 +433,8 @@ serve(async (req) => {
           is_active: true,
           is_featured: discountPercentage >= 50,
           last_synced_at: new Date().toISOString(),
+          variant_value: variant,
+          // parent_product_id will be set in a second pass
         };
       });
 
@@ -434,6 +453,51 @@ serve(async (req) => {
       }
 
       console.log(`Processed ${Math.min(i + batchSize, selectedProducts.length)} of ${selectedProducts.length} products`);
+    }
+
+    // Second pass: Link product variants to parent products
+    // Find products with variants and group them
+    console.log('Linking product variants...');
+    
+    const { data: productsWithVariants } = await supabase
+      .from('products')
+      .select('id, original_title, variant_value, brand')
+      .not('variant_value', 'is', null)
+      .is('parent_product_id', null);
+    
+    if (productsWithVariants && productsWithVariants.length > 0) {
+      // Group by base name (title without variant)
+      const variantGroups = new Map<string, typeof productsWithVariants>();
+      
+      for (const product of productsWithVariants) {
+        const { baseName } = extractVariant(product.original_title);
+        const key = `${product.brand || ''}-${baseName}`.toLowerCase();
+        
+        if (!variantGroups.has(key)) {
+          variantGroups.set(key, []);
+        }
+        variantGroups.get(key)!.push(product);
+      }
+      
+      // For each group with multiple variants, set parent_product_id
+      let variantsLinked = 0;
+      for (const [_, group] of variantGroups) {
+        if (group.length > 1) {
+          // First product becomes the parent (no parent_product_id)
+          const parentId = group[0].id;
+          
+          // Link all other products to the parent
+          for (let i = 1; i < group.length; i++) {
+            await supabase
+              .from('products')
+              .update({ parent_product_id: parentId })
+              .eq('id', group[i].id);
+            variantsLinked++;
+          }
+        }
+      }
+      
+      console.log(`Linked ${variantsLinked} product variants to parents`);
     }
 
     // Update sync log
