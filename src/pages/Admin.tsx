@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -14,14 +14,21 @@ import {
   ArrowLeft,
   LogOut,
   Shield,
+  Save,
+  Link as LinkIcon,
+  StopCircle,
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { useAwinSettings, useSyncLogs, useTriggerSync, useProductStats } from '@/hooks/useAdmin';
+import { useAwinSettings, useSyncLogs, useProductStats, useBatchSync, useUpdateFeedUrl } from '@/hooks/useAdmin';
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -30,7 +37,18 @@ const Admin = () => {
   const { data: settings, isLoading: settingsLoading } = useAwinSettings();
   const { data: syncLogs, isLoading: logsLoading } = useSyncLogs(5);
   const { data: stats, isLoading: statsLoading } = useProductStats();
-  const triggerSync = useTriggerSync();
+  const { startSync, stopSync, progress } = useBatchSync();
+  const updateFeedUrl = useUpdateFeedUrl();
+  
+  const [feedUrl, setFeedUrl] = useState('');
+  const [isEditingFeed, setIsEditingFeed] = useState(false);
+
+  // Set feed URL when settings load
+  useEffect(() => {
+    if (settings?.feed_url) {
+      setFeedUrl(settings.feed_url);
+    }
+  }, [settings?.feed_url]);
 
   // Redirect to auth if not logged in
   useEffect(() => {
@@ -41,15 +59,40 @@ const Admin = () => {
 
   const handleSync = async () => {
     try {
-      await triggerSync.mutateAsync();
+      await startSync();
       toast({
-        title: 'Sync gestart',
-        description: 'De producten worden nu gesynchroniseerd.',
+        title: 'Sync voltooid',
+        description: `${progress.totalProducts.toLocaleString('nl-NL')} producten zijn gesynchroniseerd.`,
       });
     } catch (error) {
       toast({
         title: 'Sync mislukt',
-        description: 'Er is een fout opgetreden. Controleer de Awin API instellingen.',
+        description: 'Er is een fout opgetreden. Controleer de feed URL.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleStopSync = () => {
+    stopSync();
+    toast({
+      title: 'Sync gestopt',
+      description: 'De synchronisatie is gestopt.',
+    });
+  };
+
+  const handleSaveFeedUrl = async () => {
+    try {
+      await updateFeedUrl.mutateAsync(feedUrl);
+      setIsEditingFeed(false);
+      toast({
+        title: 'Feed URL opgeslagen',
+        description: 'De Awin feed URL is bijgewerkt.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Opslaan mislukt',
+        description: 'Er is een fout opgetreden.',
         variant: 'destructive',
       });
     }
@@ -114,6 +157,10 @@ const Admin = () => {
     return null;
   }
 
+  const syncProgressPercent = progress.totalProducts > 0 
+    ? (progress.processedProducts / progress.totalProducts) * 100 
+    : 0;
+
   return (
     <Layout>
       <div className="container py-8">
@@ -144,18 +191,21 @@ const Admin = () => {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <Button
-              onClick={handleSync}
-              disabled={triggerSync.isPending || !isAdmin}
-              className="gap-2"
-            >
-              {triggerSync.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
+            {progress.isRunning ? (
+              <Button onClick={handleStopSync} variant="destructive" className="gap-2">
+                <StopCircle className="h-4 w-4" />
+                Stop Sync
+              </Button>
+            ) : (
+              <Button
+                onClick={handleSync}
+                disabled={!isAdmin}
+                className="gap-2"
+              >
                 <RefreshCw className="h-4 w-4" />
-              )}
-              Sync Nu
-            </Button>
+                Sync Alle Producten
+              </Button>
+            )}
             <Button variant="outline" onClick={handleSignOut} className="gap-2">
               <LogOut className="h-4 w-4" />
               Uitloggen
@@ -169,6 +219,32 @@ const Admin = () => {
               <p className="text-sm text-destructive">
                 Je hebt geen admin rechten. Neem contact op met de beheerder om toegang te krijgen.
               </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Sync Progress */}
+        {progress.isRunning && (
+          <Card className="mb-8 border-primary/50 bg-primary/5">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                Synchronisatie Bezig...
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Progress value={syncProgressPercent} className="h-3" />
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">
+                  {progress.processedProducts.toLocaleString('nl-NL')} / {progress.totalProducts.toLocaleString('nl-NL')} producten
+                </span>
+                <span className="text-muted-foreground">
+                  Batch {progress.currentBatch} / {progress.totalBatches}
+                </span>
+                <span className="font-medium text-primary">
+                  {progress.estimatedTimeRemaining} resterend
+                </span>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -228,11 +304,78 @@ const Admin = () => {
                   : 'Nooit'}
               </div>
               <p className="text-xs text-muted-foreground">
-                {settings?.sync_enabled ? 'Auto-sync aan' : 'Auto-sync uit'}
+                Wekelijkse auto-sync actief
               </p>
             </CardContent>
           </Card>
         </div>
+
+        {/* Feed URL Configuration */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <LinkIcon className="h-5 w-5" />
+              Awin Feed URL
+            </CardTitle>
+            <CardDescription>
+              Configureer de Awin datafeed URL voor product synchronisatie
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isEditingFeed ? (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="feedUrl">Feed URL</Label>
+                  <Textarea
+                    id="feedUrl"
+                    value={feedUrl}
+                    onChange={(e) => setFeedUrl(e.target.value)}
+                    placeholder="https://productdata.awin.com/datafeed/download/..."
+                    className="min-h-[100px] font-mono text-xs"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={handleSaveFeedUrl}
+                    disabled={updateFeedUrl.isPending}
+                    className="gap-2"
+                  >
+                    {updateFeedUrl.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4" />
+                    )}
+                    Opslaan
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setIsEditingFeed(false);
+                      setFeedUrl(settings?.feed_url || '');
+                    }}
+                  >
+                    Annuleren
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-3">
+                <div className="bg-secondary/50 rounded-lg p-3">
+                  <p className="font-mono text-xs text-muted-foreground break-all line-clamp-2">
+                    {settings?.feed_url || 'Geen feed URL geconfigureerd'}
+                  </p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsEditingFeed(true)}
+                  disabled={!isAdmin}
+                >
+                  Feed URL Bewerken
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Awin Settings */}
@@ -243,7 +386,7 @@ const Admin = () => {
                 Awin Instellingen
               </CardTitle>
               <CardDescription>
-                Configureer de Awin API koppeling
+                API configuratie status
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -264,10 +407,8 @@ const Admin = () => {
               </div>
 
               <div className="flex items-center justify-between py-2 border-b border-border">
-                <span className="text-sm text-muted-foreground">Sync Interval</span>
-                <span className="text-sm font-medium">
-                  Elke {settings?.sync_interval_hours || 24} uur
-                </span>
+                <span className="text-sm text-muted-foreground">Auto-Sync</span>
+                <Badge className="bg-success/10 text-success">Wekelijks (Zondag)</Badge>
               </div>
 
               <div className="flex items-center justify-between py-2">
@@ -314,7 +455,7 @@ const Admin = () => {
                           </p>
                           {log.status === 'completed' && (
                             <p className="text-xs text-muted-foreground">
-                              +{log.products_added} nieuw, {log.products_updated} bijgewerkt
+                              {log.products_added?.toLocaleString('nl-NL')} producten
                             </p>
                           )}
                           {log.error_message && (
