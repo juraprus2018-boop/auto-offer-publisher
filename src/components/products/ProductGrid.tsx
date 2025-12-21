@@ -36,7 +36,7 @@ export function ProductGrid({
 
     const observer = new IntersectionObserver(handleObserver, {
       threshold: 0.1,
-      rootMargin: '100px',
+      rootMargin: '600px', // Load earlier for smoother experience
     });
 
     observer.observe(element);

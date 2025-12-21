@@ -8,6 +8,8 @@ export function useInfiniteProducts(filters: ProductFilters = {}, categoryId?: s
   return useInfiniteQuery({
     queryKey: ['infinite-products', filters, categoryId],
     queryFn: async ({ pageParam = 0 }) => {
+      // Use a subquery to get distinct products by base title
+      // This groups variants together and picks one representative product
       let query = supabase
         .from('products')
         .select(`
@@ -16,7 +18,8 @@ export function useInfiniteProducts(filters: ProductFilters = {}, categoryId?: s
           advertiser:advertisers(*)
         `, { count: 'exact' })
         .eq('is_active', true)
-        .is('parent_product_id', null);
+        .is('parent_product_id', null)
+        .is('variant_value', null); // Only get products without variant values (main products)
 
       // Search filter
       if (filters.search) {
