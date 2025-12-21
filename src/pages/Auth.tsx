@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -18,7 +17,7 @@ const authSchema = z.object({
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, user } = useAuth();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -74,33 +73,6 @@ const Auth = () => {
     }
   };
 
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validateForm()) return;
-
-    setIsLoading(true);
-    const { error } = await signUp(email, password);
-    setIsLoading(false);
-
-    if (error) {
-      let message = 'Registratie mislukt. Probeer het opnieuw.';
-      if (error.message.includes('already registered')) {
-        message = 'Dit e-mailadres is al geregistreerd. Probeer in te loggen.';
-      }
-      toast({
-        title: 'Fout',
-        description: message,
-        variant: 'destructive',
-      });
-    } else {
-      toast({
-        title: 'Account aangemaakt!',
-        description: 'Je kunt nu inloggen.',
-      });
-      navigate('/admin');
-    }
-  };
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5 p-4">
       <div className="w-full max-w-md">
@@ -118,128 +90,63 @@ const Auth = () => {
           <CardHeader className="text-center">
             <CardTitle>Admin Toegang</CardTitle>
             <CardDescription>
-              Log in of maak een account aan
+              Log in om door te gaan
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="login" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="login">Inloggen</TabsTrigger>
-                <TabsTrigger value="register">Registreren</TabsTrigger>
-              </TabsList>
+            <form onSubmit={handleSignIn} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="login-email">E-mailadres</Label>
+                <Input
+                  id="login-email"
+                  type="email"
+                  placeholder="naam@voorbeeld.nl"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                />
+              </div>
 
-              <TabsContent value="login">
-                <form onSubmit={handleSignIn} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="login-email">E-mailadres</Label>
-                    <Input
-                      id="login-email"
-                      type="email"
-                      placeholder="naam@voorbeeld.nl"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                      autoComplete="email"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="login-password">Wachtwoord</Label>
-                    <div className="relative">
-                      <Input
-                        id="login-password"
-                        type={showPassword ? 'text' : 'password'}
-                        placeholder="••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        autoComplete="current-password"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? (
-                          <EyeOff className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <Eye className="h-4 w-4 text-muted-foreground" />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Laden...
-                      </>
+              <div className="space-y-2">
+                <Label htmlFor="login-password">Wachtwoord</Label>
+                <div className="relative">
+                  <Input
+                    id="login-password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    autoComplete="current-password"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
                     ) : (
-                      'Inloggen'
+                      <Eye className="h-4 w-4 text-muted-foreground" />
                     )}
                   </Button>
-                </form>
-              </TabsContent>
+                </div>
+              </div>
 
-              <TabsContent value="register">
-                <form onSubmit={handleSignUp} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="register-email">E-mailadres</Label>
-                    <Input
-                      id="register-email"
-                      type="email"
-                      placeholder="naam@voorbeeld.nl"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                      autoComplete="email"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="register-password">Wachtwoord</Label>
-                    <div className="relative">
-                      <Input
-                        id="register-password"
-                        type={showPassword ? 'text' : 'password'}
-                        placeholder="Minimaal 6 tekens"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        autoComplete="new-password"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? (
-                          <EyeOff className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <Eye className="h-4 w-4 text-muted-foreground" />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Laden...
-                      </>
-                    ) : (
-                      'Account aanmaken'
-                    )}
-                  </Button>
-                </form>
-              </TabsContent>
-            </Tabs>
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Laden...
+                  </>
+                ) : (
+                  'Inloggen'
+                )}
+              </Button>
+            </form>
           </CardContent>
         </Card>
 
