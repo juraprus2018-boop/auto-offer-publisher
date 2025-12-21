@@ -21,10 +21,10 @@ export function ProductCard({ product }: ProductCardProps) {
   };
 
   return (
-    <Card className="group overflow-hidden border-border/50 hover:border-primary/30 transition-all duration-300 hover:shadow-lg animate-fade-in">
+    <Card className="group overflow-hidden border-0 shadow-deal hover:shadow-deal-hover transition-all duration-300 hover:-translate-y-1 animate-fade-in bg-card rounded-2xl">
       <Link to={`/deal/${product.slug}`} className="block">
         {/* Image */}
-        <div className="relative aspect-square overflow-hidden bg-secondary">
+        <div className="relative aspect-square overflow-hidden bg-secondary/50">
           {product.image_url ? (
             <img
               src={product.image_url}
@@ -38,17 +38,17 @@ export function ProductCard({ product }: ProductCardProps) {
             </div>
           )}
 
-          {/* Discount Badge */}
+          {/* Discount Badge - iBood style green */}
           {hasDiscount && (
-            <Badge className="absolute top-3 left-3 bg-primary text-primary-foreground font-bold text-sm px-2 py-1">
-              -{product.discount_percentage}%
+            <Badge className="absolute top-3 left-3 bg-success text-success-foreground font-extrabold text-sm px-3 py-1.5 rounded-full shadow-lg">
+              {product.discount_percentage}%
             </Badge>
           )}
 
           {/* Featured Badge */}
           {product.is_featured && (
-            <Badge className="absolute top-3 right-3 bg-accent text-accent-foreground font-medium text-xs">
-              Top Deal
+            <Badge className="absolute top-3 right-3 bg-accent text-accent-foreground font-bold text-xs rounded-full">
+              🔥 Top Deal
             </Badge>
           )}
         </div>
@@ -57,14 +57,14 @@ export function ProductCard({ product }: ProductCardProps) {
       <CardContent className="p-4">
         {/* Brand */}
         {product.brand && (
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
             {product.brand}
           </span>
         )}
 
         {/* Title */}
         <Link to={`/deal/${product.slug}`}>
-          <h3 className="mt-1 text-sm font-semibold text-foreground line-clamp-2 group-hover:text-primary transition-colors">
+          <h3 className="mt-1 text-sm font-bold text-foreground line-clamp-2 group-hover:text-primary transition-colors leading-tight">
             {product.seo_title}
           </h3>
         </Link>
@@ -73,29 +73,35 @@ export function ProductCard({ product }: ProductCardProps) {
         {product.category && (
           <Link
             to={`/categorie/${product.category.slug}`}
-            className="inline-block mt-2 text-xs text-muted-foreground hover:text-primary transition-colors"
+            className="inline-block mt-2 text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
           >
             {product.category.name}
           </Link>
         )}
 
-        {/* Pricing */}
-        <div className="mt-3 flex items-end gap-2">
-          {product.sale_price && (
-            <span className="text-lg font-bold text-foreground">
-              {formatPrice(product.sale_price)}
-            </span>
-          )}
+        {/* Pricing - iBood style */}
+        <div className="mt-3">
           {hasDiscount && product.original_price && (
-            <span className="text-sm text-muted-foreground line-through">
-              {formatPrice(product.original_price)}
-            </span>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-muted-foreground">Adviesprijs</span>
+              <span className="text-muted-foreground line-through">
+                {formatPrice(product.original_price)}
+              </span>
+            </div>
           )}
+          <div className="flex items-baseline gap-2 mt-1">
+            <span className="text-primary font-bold text-sm">Nu!</span>
+            {product.sale_price && (
+              <span className="text-2xl font-extrabold text-foreground">
+                {formatPrice(product.sale_price)}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Savings */}
         {hasDiscount && product.original_price && product.sale_price && (
-          <p className="mt-1 text-xs font-medium text-success">
+          <p className="mt-2 text-xs font-bold text-success bg-success/10 rounded-full px-3 py-1 inline-block">
             Je bespaart {formatPrice(product.original_price - product.sale_price)}
           </p>
         )}
@@ -103,8 +109,7 @@ export function ProductCard({ product }: ProductCardProps) {
         {/* CTA Button */}
         <Button
           asChild
-          className="w-full mt-4 bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
-          size="sm"
+          className="w-full mt-4 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl h-11"
         >
           <a
             href={product.affiliate_link}
@@ -112,8 +117,8 @@ export function ProductCard({ product }: ProductCardProps) {
             rel="noopener noreferrer nofollow"
             onClick={(e) => e.stopPropagation()}
           >
-            Bekijk Deal
-            <ExternalLink className="ml-2 h-3.5 w-3.5" />
+            Bekijk deal
+            <ExternalLink className="ml-2 h-4 w-4" />
           </a>
         </Button>
       </CardContent>
