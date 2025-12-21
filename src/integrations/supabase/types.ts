@@ -142,12 +142,14 @@ export type Database = {
           merchant_category: string | null
           original_price: number | null
           original_title: string
+          parent_product_id: string | null
           product_url: string
           sale_price: number | null
           seo_description: string | null
           seo_title: string
           slug: string
           updated_at: string
+          variant_value: string | null
         }
         Insert: {
           advertiser_id?: string | null
@@ -168,12 +170,14 @@ export type Database = {
           merchant_category?: string | null
           original_price?: number | null
           original_title: string
+          parent_product_id?: string | null
           product_url: string
           sale_price?: number | null
           seo_description?: string | null
           seo_title: string
           slug: string
           updated_at?: string
+          variant_value?: string | null
         }
         Update: {
           advertiser_id?: string | null
@@ -194,12 +198,14 @@ export type Database = {
           merchant_category?: string | null
           original_price?: number | null
           original_title?: string
+          parent_product_id?: string | null
           product_url?: string
           sale_price?: number | null
           seo_description?: string | null
           seo_title?: string
           slug?: string
           updated_at?: string
+          variant_value?: string | null
         }
         Relationships: [
           {
@@ -214,6 +220,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_parent_product_id_fkey"
+            columns: ["parent_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
         ]
@@ -280,6 +293,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      extract_base_product_name: { Args: { title: string }; Returns: string }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]

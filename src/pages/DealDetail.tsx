@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, ExternalLink, Tag, Store, Clock } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
@@ -5,11 +6,24 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useProduct } from '@/hooks/useProducts';
+import { useProduct, useProductVariants } from '@/hooks/useProducts';
 
 const DealDetail = () => {
   const { slug } = useParams<{ slug: string }>();
   const { data: product, isLoading, error } = useProduct(slug || '');
+  const { data: variants } = useProductVariants(product?.id || '');
+  const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
+  
+  // Set initial selected variant when variants load
+  useEffect(() => {
+    if (variants && variants.length > 0 && !selectedVariant) {
+      const currentProduct = variants.find(v => v.id === product?.id);
+      setSelectedVariant(currentProduct?.id || variants[0].id);
+    }
+  }, [variants, product?.id, selectedVariant]);
+
+  // Get selected variant data
+  const selectedVariantData = variants?.find(v => v.id === selectedVariant);
 
   const formatPrice = (price: number | null) => {
     if (price === null) return null;
@@ -153,16 +167,36 @@ const DealDetail = () => {
               )}
             </div>
 
+            {/* Size/Variant Selector */}
+            {variants && variants.length > 1 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium">Kies je maat</h3>
+                <div className="flex flex-wrap gap-2">
+                  {variants.map((variant) => (
+                    <Button
+                      key={variant.id}
+                      variant={selectedVariant === variant.id ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedVariant(variant.id)}
+                      className="min-w-[60px]"
+                    >
+                      {variant.variant_value || 'Standaard'}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Pricing */}
             <Card className="bg-secondary/50 border-0">
               <CardContent className="p-6">
                 <div className="flex items-end gap-4 mb-3">
                   <span className="text-4xl font-bold text-foreground">
-                    {formatPrice(product.sale_price)}
+                    {formatPrice(selectedVariantData?.sale_price ?? product.sale_price)}
                   </span>
-                  {hasDiscount && product.original_price && (
+                  {hasDiscount && (selectedVariantData?.original_price || product.original_price) && (
                     <span className="text-xl text-muted-foreground line-through">
-                      {formatPrice(product.original_price)}
+                      {formatPrice(selectedVariantData?.original_price ?? product.original_price)}
                     </span>
                   )}
                 </div>
@@ -182,7 +216,7 @@ const DealDetail = () => {
               className="w-full h-14 text-lg font-semibold"
             >
               <a
-                href={product.affiliate_link}
+                href={selectedVariantData?.affiliate_link || product.affiliate_link}
                 target="_blank"
                 rel="noopener noreferrer nofollow"
               >

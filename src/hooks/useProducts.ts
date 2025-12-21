@@ -13,7 +13,9 @@ export function useProducts(filters: ProductFilters = {}, categoryId?: string) {
           category:categories(*),
           advertiser:advertisers(*)
         `, { count: 'exact' })
-        .eq('is_active', true);
+        .eq('is_active', true)
+        // Only show parent products (not variants) in listings
+        .is('parent_product_id', null);
 
       // Search filter
       if (filters.search) {
@@ -119,6 +121,7 @@ export function useFeaturedProducts(limit = 8) {
         `)
         .eq('is_active', true)
         .eq('is_featured', true)
+        .is('parent_product_id', null)
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -141,6 +144,7 @@ export function useTopDeals(limit = 12) {
           advertiser:advertisers(*)
         `)
         .eq('is_active', true)
+        .is('parent_product_id', null)
         .not('discount_percentage', 'is', null)
         .order('discount_percentage', { ascending: false })
         .limit(limit);
@@ -164,6 +168,7 @@ export function useRecentProducts(limit = 12) {
           advertiser:advertisers(*)
         `)
         .eq('is_active', true)
+        .is('parent_product_id', null)
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -171,5 +176,26 @@ export function useRecentProducts(limit = 12) {
 
       return data as Product[];
     },
+  });
+}
+
+// Get all variants of a product (including the parent)
+export function useProductVariants(productId: string) {
+  return useQuery({
+    queryKey: ['product-variants', productId],
+    queryFn: async () => {
+      // Get all products that are variants of this product OR have this product as parent
+      const { data, error } = await supabase
+        .from('products')
+        .select('id, slug, variant_value, sale_price, original_price, affiliate_link')
+        .or(`id.eq.${productId},parent_product_id.eq.${productId}`)
+        .eq('is_active', true)
+        .order('variant_value');
+
+      if (error) throw error;
+
+      return data;
+    },
+    enabled: !!productId,
   });
 }
