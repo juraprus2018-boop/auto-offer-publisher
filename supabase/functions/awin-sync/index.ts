@@ -7,17 +7,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Parse CSV text to array of objects
-function parseCSV(csvText: string): Record<string, string>[] {
-  const lines = csvText.split('\n').filter(line => line.trim());
+// Parse CSV text to array of objects - with limit to save CPU
+function parseCSV(csvText: string, maxProducts: number = 1000): Record<string, string>[] {
+  const lines = csvText.split('\n');
   if (lines.length < 2) return [];
   
   // First line is headers
   const headers = parseCSVLine(lines[0]);
   const products: Record<string, string>[] = [];
   
-  for (let i = 1; i < lines.length; i++) {
-    const values = parseCSVLine(lines[i]);
+  // Only parse up to maxProducts to save CPU time
+  const maxLines = Math.min(lines.length, maxProducts + 1);
+  
+  for (let i = 1; i < maxLines; i++) {
+    const line = lines[i];
+    if (!line || !line.trim()) continue;
+    
+    const values = parseCSVLine(line);
     if (values.length === headers.length) {
       const product: Record<string, string> = {};
       headers.forEach((header, idx) => {
@@ -287,9 +293,10 @@ serve(async (req) => {
           csvText = new TextDecoder().decode(compressedData);
         }
         
-        // Parse CSV
-        const parsedProducts = parseCSV(csvText);
-        console.log(`Parsed ${parsedProducts.length} products from CSV`);
+        // Parse CSV - limit to 1000 products to save CPU time
+        const MAX_PARSE = 1000;
+        const parsedProducts = parseCSV(csvText, MAX_PARSE);
+        console.log(`Parsed ${parsedProducts.length} products from CSV (limited to ${MAX_PARSE})`);
         
         // Map to AwinProduct interface
         products = parsedProducts.map(p => ({
