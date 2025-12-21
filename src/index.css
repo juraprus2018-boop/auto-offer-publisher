@@ -2,23 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
-/* KortingDeal.nl Design System - iBood Inspired Theme */
-
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap');
 
 @layer base {
   :root {
     /* Background - Light cream/beige like iBood */
     --background: 30 30% 98%;
-    --foreground: 240 20% 20%;
+    --foreground: 240 20% 15%;
 
     /* Card colors - White cards */
     --card: 0 0% 100%;
-    --card-foreground: 240 20% 20%;
+    --card-foreground: 240 20% 15%;
 
     /* Popover colors */
     --popover: 0 0% 100%;
-    --popover-foreground: 240 20% 20%;
+    --popover-foreground: 240 20% 15%;
 
     /* Primary - iBood Orange/Red */
     --primary: 16 100% 50%;
@@ -29,15 +27,15 @@
     --secondary-foreground: 250 30% 30%;
 
     /* Muted colors */
-    --muted: 250 20% 95%;
-    --muted-foreground: 240 10% 50%;
+    --muted: 250 15% 94%;
+    --muted-foreground: 240 10% 45%;
 
     /* Accent - Purple for secondary actions */
     --accent: 260 60% 55%;
     --accent-foreground: 0 0% 100%;
 
     /* Success - Bright green for discounts (iBood style) */
-    --success: 145 80% 42%;
+    --success: 145 80% 38%;
     --success-foreground: 0 0% 100%;
 
     /* Destructive */
@@ -45,78 +43,78 @@
     --destructive-foreground: 0 0% 100%;
 
     /* Border and input */
-    --border: 250 20% 90%;
-    --input: 250 20% 90%;
+    --border: 250 15% 90%;
+    --input: 250 15% 90%;
     --ring: 16 100% 50%;
 
     --radius: 1rem;
 
     /* Sidebar - Dark purple like iBood header */
-    --sidebar-background: 250 40% 20%;
-    --sidebar-foreground: 0 0% 95%;
+    --sidebar-background: 250 40% 18%;
+    --sidebar-foreground: 0 0% 98%;
     --sidebar-primary: 16 100% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 250 40% 30%;
-    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-accent: 250 40% 28%;
+    --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 250 40% 25%;
     --sidebar-ring: 16 100% 50%;
 
     /* Custom deal colors - iBood inspired */
     --deal-hot: 16 100% 50%;
     --deal-badge: 16 100% 50%;
-    --discount: 145 80% 42%;
+    --discount: 145 80% 38%;
     
-    /* Header - Dark blue/purple */
-    --header: 250 40% 20%;
+    /* Header - Dark purple */
+    --header: 250 40% 18%;
     --header-foreground: 0 0% 100%;
   }
 
   .dark {
-    --background: 250 30% 8%;
-    --foreground: 0 0% 95%;
+    --background: 250 30% 6%;
+    --foreground: 0 0% 96%;
 
-    --card: 250 30% 12%;
-    --card-foreground: 0 0% 95%;
+    --card: 250 30% 10%;
+    --card-foreground: 0 0% 96%;
 
-    --popover: 250 30% 12%;
-    --popover-foreground: 0 0% 95%;
+    --popover: 250 30% 10%;
+    --popover-foreground: 0 0% 96%;
 
     --primary: 16 100% 55%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 250 30% 18%;
-    --secondary-foreground: 0 0% 90%;
+    --secondary: 250 30% 16%;
+    --secondary-foreground: 0 0% 92%;
 
-    --muted: 250 30% 15%;
-    --muted-foreground: 250 15% 55%;
+    --muted: 250 30% 14%;
+    --muted-foreground: 250 15% 58%;
 
-    --accent: 260 60% 60%;
+    --accent: 260 60% 58%;
     --accent-foreground: 0 0% 100%;
 
-    --success: 145 80% 45%;
+    --success: 145 80% 42%;
     --success-foreground: 0 0% 100%;
 
-    --destructive: 0 62% 40%;
-    --destructive-foreground: 0 0% 95%;
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 250 30% 20%;
-    --input: 250 30% 20%;
+    --border: 250 30% 18%;
+    --input: 250 30% 18%;
     --ring: 16 100% 55%;
 
-    --sidebar-background: 250 40% 12%;
-    --sidebar-foreground: 0 0% 95%;
+    --sidebar-background: 250 40% 10%;
+    --sidebar-foreground: 0 0% 98%;
     --sidebar-primary: 16 100% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 250 40% 20%;
-    --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 250 40% 18%;
+    --sidebar-accent: 250 40% 18%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 250 40% 16%;
     --sidebar-ring: 16 100% 55%;
 
     --deal-hot: 16 100% 55%;
     --deal-badge: 16 100% 55%;
-    --discount: 145 80% 50%;
+    --discount: 145 80% 48%;
     
-    --header: 250 40% 15%;
+    --header: 250 40% 12%;
     --header-foreground: 0 0% 100%;
   }
 }
@@ -128,11 +126,31 @@
 
   html {
     font-family: 'Nunito', system-ui, sans-serif;
+    scroll-behavior: smooth;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
   }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-muted/50;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/25 rounded-full;
+  transition: background 0.2s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/40;
 }
 
 @layer components {
@@ -150,6 +168,11 @@
   .deal-card {
     @apply transition-all duration-300 hover:shadow-xl hover:-translate-y-1;
   }
+
+  /* Glass morphism effect */
+  .glass {
+    @apply bg-card/80 backdrop-blur-lg border border-border/50;
+  }
 }
 
 @layer utilities {
@@ -158,11 +181,11 @@
   }
   
   .animate-fade-in {
-    animation: fadeIn 0.3s ease-out;
+    animation: fadeIn 0.4s ease-out;
   }
   
   .animate-slide-up {
-    animation: slideUp 0.4s ease-out;
+    animation: slideUp 0.5s ease-out;
   }
 
   .animate-pulse-subtle {
@@ -172,21 +195,28 @@
   .animate-bounce-in {
     animation: bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
   }
+
+  .animate-shimmer {
+    animation: shimmer 2s linear infinite;
+    background-size: 200% 100%;
+  }
 }
 
 @keyframes fadeIn {
   from {
     opacity: 0;
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
+    transform: translateY(0);
   }
 }
 
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(16px);
   }
   to {
     opacity: 1;
@@ -219,3 +249,13 @@
     transform: scale(1);
   }
 }
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
