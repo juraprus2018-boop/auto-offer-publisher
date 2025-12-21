@@ -1,11 +1,37 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Menu, X, Percent, User, LogOut, Check } from 'lucide-react';
+import { Search, Menu, X, Percent, User, LogOut, Check, Tag, LucideProps } from 'lucide-react';
+import dynamicIconImports from 'lucide-react/dynamicIconImports';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useCategories } from '@/hooks/useCategories';
 import { useAuth } from '@/hooks/useAuth';
+
+// Dynamic icon component for category icons
+interface DynamicIconProps extends Omit<LucideProps, 'ref'> {
+  name: string;
+}
+
+function DynamicIcon({ name, ...props }: DynamicIconProps) {
+  // Convert PascalCase to kebab-case for lucide dynamic imports
+  const kebabName = name
+    .replace(/([a-z])([A-Z])/g, '$1-$2')
+    .replace(/([A-Z])([A-Z][a-z])/g, '$1-$2')
+    .toLowerCase() as keyof typeof dynamicIconImports;
+
+  if (!dynamicIconImports[kebabName]) {
+    return <Tag {...props} />;
+  }
+
+  const LucideIcon = lazy(dynamicIconImports[kebabName]);
+
+  return (
+    <Suspense fallback={<Tag {...props} />}>
+      <LucideIcon {...props} />
+    </Suspense>
+  );
+}
 
 interface HeaderProps {
   onSearch?: (query: string) => void;
@@ -159,14 +185,15 @@ export function Header({ onSearch }: HeaderProps) {
                 {categories && categories.length > 0 && (
                   <div>
                     <h3 className="text-sm font-bold text-muted-foreground mb-3 uppercase tracking-wide">Categorieën</h3>
-                    <div className="flex flex-col gap-2 max-h-[40vh] overflow-y-auto pr-2">
+                    <div className="flex flex-col gap-1 max-h-[40vh] overflow-y-auto pr-2">
                       {categories.map((category) => (
                         <Link
                           key={category.id}
                           to={`/categorie/${category.slug}`}
                           onClick={() => setMobileMenuOpen(false)}
-                          className="text-sm font-medium hover:text-primary transition-colors py-1"
+                          className="flex items-center gap-3 text-sm font-medium hover:text-primary transition-colors py-2 px-2 rounded-lg hover:bg-secondary"
                         >
+                          <DynamicIcon name={category.icon || 'Tag'} className="h-4 w-4 text-muted-foreground" />
                           {category.name}
                         </Link>
                       ))}
