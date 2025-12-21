@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { ProductGrid } from '@/components/products/ProductGrid';
 import { ProductFilters } from '@/components/products/ProductFilters';
-import { useProducts } from '@/hooks/useProducts';
+import { useInfiniteProducts } from '@/hooks/useInfiniteProducts';
 import { useCategory } from '@/hooks/useCategories';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { ProductFilters as ProductFiltersType } from '@/types/database';
@@ -12,13 +12,22 @@ const CategoryPage = () => {
   const { slug } = useParams<{ slug: string }>();
   const { data: category, isLoading: categoryLoading } = useCategory(slug || '');
   
-  const [filters, setFilters] = useState<ProductFiltersType>({
-    page: 1,
-    limit: 24,
-  });
+  const [filters, setFilters] = useState<ProductFiltersType>({});
 
-  // Pass category.id to useProducts for proper filtering
-  const { data, isLoading: productsLoading } = useProducts(filters, category?.id);
+  // Use infinite scroll for category pages
+  const {
+    data,
+    isLoading: productsLoading,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useInfiniteProducts(filters, category?.id);
+
+  // Flatten all pages into a single array
+  const products = useMemo(() => 
+    data?.pages.flatMap(page => page.products) || [],
+    [data]
+  );
 
   if (categoryLoading) {
     return (
@@ -54,9 +63,12 @@ const CategoryPage = () => {
         </div>
 
         <ProductGrid
-          products={data?.products || []}
+          products={products}
           isLoading={productsLoading}
           emptyMessage={`Geen deals gevonden in ${category?.name || 'deze categorie'}`}
+          hasNextPage={hasNextPage}
+          isFetchingNextPage={isFetchingNextPage}
+          fetchNextPage={fetchNextPage}
         />
       </div>
     </Layout>
