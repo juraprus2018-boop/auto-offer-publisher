@@ -20,4 +20,4 @@ Disallow: /auth
 Disallow: /api/
 
 # Sitemap
-Sitemap: https://kortingdeal.nl/api/sitemap?type=index
+Sitemap: https://ugzhiztkzeyhpybnsgnj.supabase.co/functions/v1/sitemap?type=index
