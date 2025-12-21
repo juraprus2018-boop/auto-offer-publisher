@@ -159,13 +159,13 @@ export function Header({ onSearch }: HeaderProps) {
                 {categories && categories.length > 0 && (
                   <div>
                     <h3 className="text-sm font-bold text-muted-foreground mb-3 uppercase tracking-wide">Categorieën</h3>
-                    <div className="flex flex-col gap-2">
-                      {categories.slice(0, 6).map((category) => (
+                    <div className="flex flex-col gap-2 max-h-[40vh] overflow-y-auto pr-2">
+                      {categories.map((category) => (
                         <Link
                           key={category.id}
                           to={`/categorie/${category.slug}`}
                           onClick={() => setMobileMenuOpen(false)}
-                          className="text-sm font-medium hover:text-primary transition-colors"
+                          className="text-sm font-medium hover:text-primary transition-colors py-1"
                         >
                           {category.name}
                         </Link>
