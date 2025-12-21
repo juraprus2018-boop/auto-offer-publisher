@@ -68,13 +68,13 @@ export function Header() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
               <Percent className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-extrabold text-foreground">
+            <span className="hidden sm:inline text-xl font-extrabold text-foreground">
               Korting<span className="text-primary">Deal</span>.nl
             </span>
           </Link>
 
-          {/* Search Bar - Desktop */}
-          <div className="hidden md:flex flex-1 max-w-xl">
+          {/* Search Bar - Always visible */}
+          <div className="flex flex-1 max-w-xl">
             <SearchAutocomplete />
           </div>
 
@@ -115,18 +115,12 @@ export function Header() {
           {/* Mobile Menu */}
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="lg:hidden">
+              <Button variant="ghost" size="icon" className="lg:hidden shrink-0">
                 {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="w-[300px] sm:w-[400px]">
               <div className="flex flex-col gap-6 mt-6">
-                {/* Mobile Search */}
-                <SearchAutocomplete 
-                  placeholder="Zoek naar deals..." 
-                  onClose={() => setMobileMenuOpen(false)}
-                />
-
                 {/* Mobile Navigation */}
                 <nav className="flex flex-col gap-4">
                   <Link
