@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
   Package,
@@ -12,20 +12,32 @@ import {
   XCircle,
   Loader2,
   ArrowLeft,
+  LogOut,
+  Shield,
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { useAwinSettings, useSyncLogs, useTriggerSync, useProductStats } from '@/hooks/useAdmin';
 
 const Admin = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, isAdmin, isLoading: authLoading, signOut } = useAuth();
   const { data: settings, isLoading: settingsLoading } = useAwinSettings();
   const { data: syncLogs, isLoading: logsLoading } = useSyncLogs(5);
   const { data: stats, isLoading: statsLoading } = useProductStats();
   const triggerSync = useTriggerSync();
+
+  // Redirect to auth if not logged in
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/auth');
+    }
+  }, [user, authLoading, navigate]);
 
   const handleSync = async () => {
     try {
@@ -41,6 +53,15 @@ const Admin = () => {
         variant: 'destructive',
       });
     }
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+    toast({
+      title: 'Uitgelogd',
+      description: 'Je bent succesvol uitgelogd.',
+    });
   };
 
   const formatDate = (dateString: string) => {
@@ -79,6 +100,20 @@ const Admin = () => {
     }
   };
 
+  if (authLoading) {
+    return (
+      <Layout>
+        <div className="container py-16 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
   return (
     <Layout>
       <div className="container py-8">
@@ -95,24 +130,48 @@ const Admin = () => {
                 <LayoutDashboard className="h-8 w-8 text-primary" />
                 Admin Dashboard
               </h1>
-              <p className="text-muted-foreground mt-1">
-                Beheer producten en Awin synchronisatie
-              </p>
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-muted-foreground text-sm">
+                  Ingelogd als {user.email}
+                </p>
+                {isAdmin && (
+                  <Badge className="bg-primary/10 text-primary text-xs">
+                    <Shield className="h-3 w-3 mr-1" />
+                    Admin
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
-          <Button
-            onClick={handleSync}
-            disabled={triggerSync.isPending || !settings?.api_key_configured}
-            className="gap-2"
-          >
-            {triggerSync.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4" />
-            )}
-            Sync Nu
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={handleSync}
+              disabled={triggerSync.isPending || !isAdmin}
+              className="gap-2"
+            >
+              {triggerSync.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              Sync Nu
+            </Button>
+            <Button variant="outline" onClick={handleSignOut} className="gap-2">
+              <LogOut className="h-4 w-4" />
+              Uitloggen
+            </Button>
+          </div>
         </div>
+
+        {!isAdmin && (
+          <Card className="mb-8 border-destructive/50 bg-destructive/5">
+            <CardContent className="py-4">
+              <p className="text-sm text-destructive">
+                Je hebt geen admin rechten. Neem contact op met de beheerder om toegang te krijgen.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Stats Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
@@ -217,14 +276,6 @@ const Admin = () => {
                   {settings?.seo_title_template || 'Standaard'}
                 </span>
               </div>
-
-              {!settings?.api_key_configured && (
-                <div className="mt-4 p-4 bg-destructive/10 rounded-lg">
-                  <p className="text-sm text-destructive">
-                    Configureer de AWIN_API_KEY secret om producten te kunnen synchroniseren.
-                  </p>
-                </div>
-              )}
             </CardContent>
           </Card>
 

@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Menu, X, Tag } from 'lucide-react';
+import { Search, Menu, X, Tag, User, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useCategories } from '@/hooks/useCategories';
+import { useAuth } from '@/hooks/useAuth';
 
 interface HeaderProps {
   onSearch?: (query: string) => void;
@@ -14,6 +15,7 @@ export function Header({ onSearch }: HeaderProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { data: categories } = useCategories();
+  const { user, isAdmin, signOut } = useAuth();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,9 +57,24 @@ export function Header({ onSearch }: HeaderProps) {
           <Link to="/categorien" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
             Categorieën
           </Link>
-          <Link to="/admin" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-            Admin
-          </Link>
+          {isAdmin && (
+            <Link to="/admin" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              Admin
+            </Link>
+          )}
+          {user ? (
+            <Button variant="ghost" size="sm" onClick={() => signOut()} className="gap-2">
+              <LogOut className="h-4 w-4" />
+              Uitloggen
+            </Button>
+          ) : (
+            <Link to="/auth">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <User className="h-4 w-4" />
+                Inloggen
+              </Button>
+            </Link>
+          )}
         </nav>
 
         {/* Mobile Menu */}
