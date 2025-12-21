@@ -74,29 +74,33 @@ serve(async (req) => {
         throw new Error('Products array is required');
       }
 
-      const productData = products.map((p: ProductData) => ({
-        awin_product_id: p.awin_product_id,
-        original_title: p.original_title,
-        description: p.description?.substring(0, 5000),
-        image_url: p.image_url,
-        product_url: p.product_url,
-        affiliate_link: p.affiliate_link,
-        seo_title: p.seo_title,
-        seo_description: p.seo_description,
-        slug: p.slug,
+      const productData = products.map((p: ProductData) => {
+        // Ensure slug is unique by appending awin_product_id
+        const uniqueSlug = `${p.slug}-${p.awin_product_id}`;
+        return {
+          awin_product_id: p.awin_product_id,
+          original_title: p.original_title,
+          description: p.description?.substring(0, 5000),
+          image_url: p.image_url,
+          product_url: p.product_url,
+          affiliate_link: p.affiliate_link,
+          seo_title: p.seo_title,
+          seo_description: p.seo_description,
+          slug: uniqueSlug,
         original_price: p.original_price,
         sale_price: p.sale_price,
         discount_percentage: p.discount_percentage,
-        currency: p.currency || 'EUR',
-        brand: p.brand,
-        merchant_category: p.merchant_category,
-        category_id: p.category_id,
-        availability: 'in_stock',
-        is_active: true,
-        is_featured: (p.discount_percentage || 0) >= 50,
-        last_synced_at: new Date().toISOString(),
-        variant_value: p.variant_value,
-      }));
+          currency: p.currency || 'EUR',
+          brand: p.brand,
+          merchant_category: p.merchant_category,
+          category_id: p.category_id,
+          availability: 'in_stock',
+          is_active: true,
+          is_featured: (p.discount_percentage || 0) >= 50,
+          last_synced_at: new Date().toISOString(),
+          variant_value: p.variant_value,
+        };
+      });
 
       const { error } = await supabase
         .from('products')
