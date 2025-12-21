@@ -1,12 +1,12 @@
 import { useState, lazy, Suspense } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Menu, X, Percent, User, LogOut, Check, Tag, LucideProps } from 'lucide-react';
+import { Menu, X, Percent, User, LogOut, Check, Tag, LucideProps } from 'lucide-react';
 import dynamicIconImports from 'lucide-react/dynamicIconImports';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useCategories } from '@/hooks/useCategories';
 import { useAuth } from '@/hooks/useAuth';
+import { SearchAutocomplete } from '@/components/search/SearchAutocomplete';
 
 // Dynamic icon component for category icons
 interface DynamicIconProps extends Omit<LucideProps, 'ref'> {
@@ -34,19 +34,9 @@ function DynamicIcon({ name, ...props }: DynamicIconProps) {
 }
 
 export function Header() {
-  const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { data: categories } = useCategories();
   const { user, isAdmin, signOut } = useAuth();
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/deals?search=${encodeURIComponent(searchQuery.trim())}`);
-      setMobileMenuOpen(false);
-    }
-  };
 
   return (
     <header className="sticky top-0 z-50 w-full">
@@ -84,18 +74,9 @@ export function Header() {
           </Link>
 
           {/* Search Bar - Desktop */}
-          <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-xl">
-            <div className="relative w-full">
-              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Waar ben je naar op zoek?"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-11 pr-4 h-11 bg-secondary border-0 rounded-full focus-visible:ring-primary font-medium"
-              />
-            </div>
-          </form>
+          <div className="hidden md:flex flex-1 max-w-xl">
+            <SearchAutocomplete />
+          </div>
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-1">
@@ -141,18 +122,10 @@ export function Header() {
             <SheetContent side="right" className="w-[300px] sm:w-[400px]">
               <div className="flex flex-col gap-6 mt-6">
                 {/* Mobile Search */}
-                <form onSubmit={handleSearch}>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      type="search"
-                      placeholder="Zoek naar deals..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-10 rounded-full"
-                    />
-                  </div>
-                </form>
+                <SearchAutocomplete 
+                  placeholder="Zoek naar deals..." 
+                  onClose={() => setMobileMenuOpen(false)}
+                />
 
                 {/* Mobile Navigation */}
                 <nav className="flex flex-col gap-4">
