@@ -159,16 +159,18 @@ serve(async (req) => {
         .from('sync_logs')
         .update({
           status: 'failed',
-          error_message: 'AWIN API credentials not configured',
+          error_message: 'AWIN API credentials not configured. Stel AWIN_API_KEY en AWIN_PUBLISHER_ID in.',
           completed_at: new Date().toISOString(),
         })
         .eq('id', syncLog.id);
 
       return new Response(
-        JSON.stringify({ error: 'AWIN API credentials not configured' }),
+        JSON.stringify({ error: 'AWIN API credentials not configured. Stel AWIN_API_KEY en AWIN_PUBLISHER_ID in.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    console.log(`API Key length: ${awinApiKey.length}, Publisher ID: ${awinPublisherId}`);
 
     // Update awin_settings to mark API as configured
     await supabase
@@ -187,36 +189,80 @@ serve(async (req) => {
 
     const seoTemplate = settings?.seo_title_template || '[brand] [title] - [discount]% Korting | KortingDeal.nl';
 
-    // Fetch products from Awin API
-    // Note: This is a simplified example. The actual Awin API requires specific endpoints
-    // and may have different response formats depending on your setup.
+    // Fetch products from Awin Product Feed API
+    // The correct format for Awin datafeed downloads
     console.log('Fetching products from Awin API...');
 
-    const awinUrl = `https://productdata.awin.com/datafeed/download/apikey/${awinApiKey}/language/nl/fid/${awinPublisherId}/format/json/`;
+    // Try multiple Awin API endpoints
+    const awinUrls = [
+      // Standard datafeed download URL
+      `https://productdata.awin.com/datafeed/download/apikey/${awinApiKey}/language/nl/fid/${awinPublisherId}/format/json/`,
+      // Alternative: comma-separated feed IDs
+      `https://productdata.awin.com/datafeed/download/apikey/${awinApiKey}/language/nl/fid/${awinPublisherId}/format/json/columns/aw_product_id,product_name,description,merchant_id,merchant_name,aw_deep_link,merchant_deep_link,aw_image_url,search_price,rrp_price,currency,merchant_category,brand_name,in_stock/`,
+    ];
     
     let products: AwinProduct[] = [];
+    let lastError: string | null = null;
     
-    try {
-      const response = await fetch(awinUrl, {
-        headers: {
-          'Accept': 'application/json',
-        },
-      });
+    for (const awinUrl of awinUrls) {
+      try {
+        console.log(`Trying Awin URL: ${awinUrl.substring(0, 80)}...`);
+        
+        const response = await fetch(awinUrl, {
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'KortingDeal-Sync/1.0',
+          },
+        });
 
-      if (!response.ok) {
-        throw new Error(`Awin API returned ${response.status}: ${response.statusText}`);
+        console.log(`Awin response status: ${response.status}`);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.log(`Awin error response: ${errorText.substring(0, 500)}`);
+          lastError = `Awin API fout (${response.status}): ${errorText.substring(0, 200)}`;
+          continue;
+        }
+
+        const contentType = response.headers.get('content-type') || '';
+        console.log(`Content-Type: ${contentType}`);
+        
+        const data = await response.json();
+        products = Array.isArray(data) ? data : data.products || data.productFeed || [];
+        
+        if (products.length > 0) {
+          console.log(`Fetched ${products.length} products from Awin`);
+          break;
+        }
+      } catch (fetchError) {
+        console.error('Error fetching from Awin:', fetchError);
+        lastError = fetchError instanceof Error ? fetchError.message : 'Unknown fetch error';
       }
+    }
 
-      const data = await response.json();
-      products = Array.isArray(data) ? data : data.products || [];
+    // If no products fetched, update sync log with detailed error
+    if (products.length === 0 && lastError) {
+      console.log(`No products fetched. Last error: ${lastError}`);
       
-      console.log(`Fetched ${products.length} products from Awin`);
-    } catch (fetchError) {
-      console.error('Error fetching from Awin:', fetchError);
-      
-      // For demo purposes, if the API fails, we'll complete with 0 products
-      // In production, you'd want to handle this differently
-      console.log('Awin API not available, completing sync with demo mode');
+      await supabase
+        .from('sync_logs')
+        .update({
+          status: 'completed',
+          error_message: `Geen producten opgehaald: ${lastError}. Controleer of je de juiste Feed ID (fid) hebt ingesteld als AWIN_PUBLISHER_ID. Je kunt je feed IDs vinden in Awin dashboard onder Product Feeds.`,
+          products_added: 0,
+          products_updated: 0,
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', syncLog.id);
+
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: `Geen producten opgehaald: ${lastError}`,
+          hint: 'Controleer of AWIN_API_KEY correct is en AWIN_PUBLISHER_ID de juiste Feed ID is uit je Awin dashboard (Product Feeds sectie).',
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Get category mappings
