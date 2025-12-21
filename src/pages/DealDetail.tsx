@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useState, useEffect, useLayoutEffect } from 'react';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import { ArrowLeft, ExternalLink, Tag, Store, Clock } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -10,9 +10,15 @@ import { useProduct, useProductVariants } from '@/hooks/useProducts';
 
 const DealDetail = () => {
   const { slug } = useParams<{ slug: string }>();
+  const location = useLocation();
   const { data: product, isLoading, error } = useProduct(slug || '');
   const { data: variants } = useProductVariants(product?.id || '');
   const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
+
+  // Scroll to top on page load
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
   
   // Set initial selected variant when variants load
   useEffect(() => {

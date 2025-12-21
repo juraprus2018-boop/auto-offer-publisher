@@ -15,7 +15,8 @@ export function useProducts(filters: ProductFilters = {}, categoryId?: string) {
         `, { count: 'exact' })
         .eq('is_active', true)
         // Only show parent products (not variants) in listings
-        .is('parent_product_id', null);
+        .is('parent_product_id', null)
+        .is('variant_value', null); // Filter out variant products
 
       // Search filter
       if (filters.search) {
@@ -122,6 +123,7 @@ export function useFeaturedProducts(limit = 8) {
         .eq('is_active', true)
         .eq('is_featured', true)
         .is('parent_product_id', null)
+        .is('variant_value', null)
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -145,6 +147,7 @@ export function useTopDeals(limit = 12) {
         `)
         .eq('is_active', true)
         .is('parent_product_id', null)
+        .is('variant_value', null)
         .not('discount_percentage', 'is', null)
         .order('discount_percentage', { ascending: false })
         .limit(limit);
@@ -169,6 +172,7 @@ export function useRecentProducts(limit = 12) {
         `)
         .eq('is_active', true)
         .is('parent_product_id', null)
+        .is('variant_value', null)
         .order('created_at', { ascending: false })
         .limit(limit);
 
