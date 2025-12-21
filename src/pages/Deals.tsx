@@ -44,7 +44,8 @@ const Deals = () => {
           </p>
         </div>
 
-        <div className="mb-8">
+        {/* Sticky Filter Bar */}
+        <div className="sticky top-[104px] z-40 -mx-4 px-4 py-4 mb-6 bg-background/95 backdrop-blur-sm border-b border-border/50 shadow-sm">
           <ProductFilters filters={filters} onFiltersChange={setFilters} />
         </div>
 
