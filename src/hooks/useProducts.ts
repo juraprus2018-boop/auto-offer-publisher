@@ -2,9 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Product, ProductFilters } from '@/types/database';
 
-export function useProducts(filters: ProductFilters = {}) {
+export function useProducts(filters: ProductFilters = {}, categoryId?: string) {
   return useQuery({
-    queryKey: ['products', filters],
+    queryKey: ['products', filters, categoryId],
     queryFn: async () => {
       let query = supabase
         .from('products')
@@ -12,7 +12,7 @@ export function useProducts(filters: ProductFilters = {}) {
           *,
           category:categories(*),
           advertiser:advertisers(*)
-        `)
+        `, { count: 'exact' })
         .eq('is_active', true);
 
       // Search filter
@@ -20,9 +20,9 @@ export function useProducts(filters: ProductFilters = {}) {
         query = query.or(`seo_title.ilike.%${filters.search}%,description.ilike.%${filters.search}%,brand.ilike.%${filters.search}%`);
       }
 
-      // Category filter
-      if (filters.categorySlug) {
-        query = query.eq('category.slug', filters.categorySlug);
+      // Category filter - use category_id directly (not via joined table)
+      if (categoryId) {
+        query = query.eq('category_id', categoryId);
       }
 
       // Price filters
@@ -43,7 +43,7 @@ export function useProducts(filters: ProductFilters = {}) {
         query = query.in('advertiser_id', filters.advertiserIds);
       }
 
-      // Sorting
+      // Sorting - default to random mix for variety
       switch (filters.sortBy) {
         case 'price_low':
           query = query.order('sale_price', { ascending: true, nullsFirst: false });
@@ -55,8 +55,11 @@ export function useProducts(filters: ProductFilters = {}) {
           query = query.order('discount_percentage', { ascending: false, nullsFirst: false });
           break;
         case 'newest':
-        default:
           query = query.order('created_at', { ascending: false });
+          break;
+        default:
+          // Default: random order for mixed display
+          query = query.order('id');
       }
 
       // Pagination
