@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Layout } from '@/components/layout/Layout';
 import { ProductGrid } from '@/components/products/ProductGrid';
@@ -6,13 +6,16 @@ import { useInfiniteProducts } from '@/hooks/useInfiniteProducts';
 import { useCategories } from '@/hooks/useCategories';
 
 const Index = () => {
+  // Force a fresh shuffle on each page load/navigation (even with cache)
+  const [shuffleKey] = useState(() => Date.now());
+
   const { 
     data, 
     isLoading, 
     hasNextPage, 
     isFetchingNextPage, 
     fetchNextPage 
-  } = useInfiniteProducts({ sortBy: 'discount' });
+  } = useInfiniteProducts({}, undefined, shuffleKey);
 
   const { data: categories } = useCategories();
 

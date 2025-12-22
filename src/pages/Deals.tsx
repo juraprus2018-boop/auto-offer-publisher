@@ -10,7 +10,10 @@ import type { ProductFilters as ProductFiltersType } from '@/types/database';
 const Deals = () => {
   const [searchParams] = useSearchParams();
   const initialSearch = searchParams.get('search') || undefined;
-  const sortParam = searchParams.get('sort') as ProductFiltersType['sortBy'] || undefined;
+  const sortParam = (searchParams.get('sort') as ProductFiltersType['sortBy']) || undefined;
+
+  // Force a fresh shuffle on each page load/navigation (even with cache)
+  const [shuffleKey] = useState(() => Date.now());
   
   const [filters, setFilters] = useState<ProductFiltersType>({
     search: initialSearch,
@@ -23,7 +26,7 @@ const Deals = () => {
     hasNextPage, 
     isFetchingNextPage, 
     fetchNextPage 
-  } = useInfiniteProducts(filters);
+  } = useInfiniteProducts(filters, undefined, shuffleKey);
 
   const allProducts = useMemo(() => {
     if (!data?.pages) return [];
