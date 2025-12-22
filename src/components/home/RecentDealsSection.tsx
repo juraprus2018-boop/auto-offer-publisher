@@ -7,7 +7,7 @@ import { useRecentProducts } from '@/hooks/useProducts';
 import { shuffleNoDuplicateCategories } from '@/lib/shuffleProducts';
 
 export function RecentDealsSection() {
-  const { data: products, isLoading } = useRecentProducts(12);
+  const { data: products, isLoading } = useRecentProducts(60);
   
   // Shuffle to avoid consecutive same-category products
   const shuffledProducts = useMemo(() => 

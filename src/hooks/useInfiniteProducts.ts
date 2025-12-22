@@ -72,21 +72,35 @@ export function useInfiniteProducts(
       }
 
       // Pagination
-      const from = pageParam * ITEMS_PER_PAGE;
-      const to = from + ITEMS_PER_PAGE - 1;
+      const useVarietyPool =
+        !!shuffleKey &&
+        !categoryId &&
+        !filters.search &&
+        filters.minPrice === undefined &&
+        filters.maxPrice === undefined &&
+        filters.minDiscount === undefined &&
+        (!filters.advertiserIds || filters.advertiserIds.length === 0);
+
+      // Fetch a larger pool for better category/brand mixing, then slice to the visible page size.
+      // This prevents the "24 meest recente" (vaak dezelfde brand/categorie) effect.
+      const poolSize = useVarietyPool ? ITEMS_PER_PAGE * 6 : ITEMS_PER_PAGE;
+
+      const from = pageParam * poolSize;
+      const to = from + poolSize - 1;
       query = query.range(from, to);
 
       const { data, error, count } = await query;
 
       if (error) throw error;
 
-      // Shuffle to avoid consecutive same-category products (only when not filtering by category)
-      const shuffledProducts = categoryId ? data : shuffleNoDuplicateCategories(data as Product[]);
+      const safeData = (data || []) as Product[];
+      const mixed = categoryId ? safeData : shuffleNoDuplicateCategories(safeData);
+      const pageProducts = useVarietyPool ? mixed.slice(0, ITEMS_PER_PAGE) : mixed;
 
       return {
-        products: shuffledProducts as Product[],
+        products: pageProducts as Product[],
         totalCount: count || 0,
-        nextPage: data && data.length === ITEMS_PER_PAGE ? pageParam + 1 : undefined,
+        nextPage: safeData.length === poolSize ? pageParam + 1 : undefined,
       };
     },
     getNextPageParam: (lastPage) => lastPage.nextPage,
