@@ -5,9 +5,13 @@ import { shuffleNoDuplicateCategories } from '@/lib/shuffleProducts';
 
 const ITEMS_PER_PAGE = 24;
 
-export function useInfiniteProducts(filters: ProductFilters = {}, categoryId?: string) {
+export function useInfiniteProducts(
+  filters: ProductFilters = {},
+  categoryId?: string,
+  shuffleKey?: string | number
+) {
   return useInfiniteQuery({
-    queryKey: ['infinite-products', filters, categoryId],
+    queryKey: ['infinite-products', filters, categoryId, shuffleKey],
     queryFn: async ({ pageParam = 0 }) => {
       let query = supabase
         .from('products')
@@ -63,8 +67,8 @@ export function useInfiniteProducts(filters: ProductFilters = {}, categoryId?: s
           query = query.order('created_at', { ascending: false });
           break;
         default:
-          // Random-ish order for better category distribution
-          query = query.order('created_at', { ascending: false });
+          // Random-ish order for better category distribution (UUID order gives a good spread)
+          query = query.order('id', { ascending: false });
       }
 
       // Pagination
