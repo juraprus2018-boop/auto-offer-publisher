@@ -10,66 +10,53 @@ function fisherYatesShuffle<T>(array: T[]): T[] {
   return result;
 }
 
-// Prefer alternating categories (Cat A -> Cat B -> Cat C ...). If that becomes impossible,
-// we at least try to avoid the same advertiser twice in a row.
+function brandKey(p: Product): string | null {
+  const b = (p.brand || '').trim().toLowerCase();
+  if (b) return b;
+  if (p.advertiser_id) return `adv:${p.advertiser_id}`;
+  return null;
+}
+
+// Shuffle products with a strong preference for:
+// 1) different category than previous
+// 2) different brand/advertiser than previous
+// Note: if the fetched list is dominated by one category/brand, it can be mathematically
+// impossible to avoid repeats. To mitigate this, fetch a larger pool and then slice.
 export function shuffleNoDuplicateCategories(products: Product[]): Product[] {
   if (products.length <= 1) return products;
 
-  // Group products by category
-  const byCategory = new Map<string | null, Product[]>();
-  for (const product of products) {
-    const catId = product.category_id;
-    if (!byCategory.has(catId)) byCategory.set(catId, []);
-    byCategory.get(catId)!.push(product);
-  }
-
-  // Shuffle products within each category
-  for (const [catId, catProducts] of byCategory) {
-    byCategory.set(catId, fisherYatesShuffle(catProducts));
-  }
-
-  const categoryIds = fisherYatesShuffle(Array.from(byCategory.keys()));
-  const total = products.length;
+  const remaining = fisherYatesShuffle(products);
   const result: Product[] = [];
 
-  const pickFromCategory = (catId: string | null, lastAdvertiserId: string | null | undefined) => {
-    const list = byCategory.get(catId)!;
-    if (list.length === 0) return undefined;
+  let lastCategoryId: string | null | undefined = undefined;
+  let lastBrand: string | null | undefined = undefined;
 
-    // Try to avoid same advertiser twice in a row if possible
-    if (lastAdvertiserId !== undefined) {
-      const idx = list.findIndex((p) => p.advertiser_id !== lastAdvertiserId);
-      if (idx >= 0) return list.splice(idx, 1)[0];
+  while (remaining.length > 0) {
+    let idx = -1;
+
+    // Best: different category AND different brand
+    idx = remaining.findIndex(
+      (p) => p.category_id !== lastCategoryId && brandKey(p) !== lastBrand
+    );
+
+    // Next: different category
+    if (idx === -1) {
+      idx = remaining.findIndex((p) => p.category_id !== lastCategoryId);
     }
 
-    return list.shift();
-  };
-
-  while (result.length < total) {
-    const last = result[result.length - 1];
-    const lastCatId = last?.category_id;
-    const lastAdvertiserId = last?.advertiser_id;
-
-    // 1) Prefer a DIFFERENT category than the last one (if available)
-    const candidates = categoryIds
-      .filter((id) => id !== lastCatId && (byCategory.get(id)?.length || 0) > 0)
-      .sort((a, b) => (byCategory.get(b)!.length || 0) - (byCategory.get(a)!.length || 0));
-
-    let chosenCatId: string | null | undefined = candidates[0];
-
-    // 2) If not possible, we are forced to stay in the same category (or only 1 category exists)
-    if (chosenCatId === undefined) {
-      chosenCatId = categoryIds
-        .filter((id) => (byCategory.get(id)?.length || 0) > 0)
-        .sort((a, b) => (byCategory.get(b)!.length || 0) - (byCategory.get(a)!.length || 0))[0];
+    // Next: different brand
+    if (idx === -1) {
+      idx = remaining.findIndex((p) => brandKey(p) !== lastBrand);
     }
 
-    if (chosenCatId === undefined) break;
+    // Fallback
+    if (idx === -1) idx = 0;
 
-    const next = pickFromCategory(chosenCatId, lastAdvertiserId);
-    if (!next) break;
-
+    const next = remaining.splice(idx, 1)[0];
     result.push(next);
+
+    lastCategoryId = next.category_id;
+    lastBrand = brandKey(next);
   }
 
   return result;
