@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pagina niet gevonden</title>
+    <meta name="robots" content="noindex" />
+    <script>
+      // SPA deep-link fallback:
+      // If the host serves this 404 page for unknown routes, redirect to / and
+      // encode the original path so index.html can restore it before React loads.
+      (function () {
+        var l = window.location;
+        var target = l.pathname + l.search + l.hash;
+        l.replace(l.origin + '/?__redirect=' + encodeURIComponent(target));
+      })();
+    </script>
+  </head>
+  <body></body>
+</html>

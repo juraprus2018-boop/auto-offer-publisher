@@ -3,8 +3,30 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // Support direct URL entry / page refresh on client-side routes.
+      // See public/404.html for the redirect source.
+      (function () {
+        var params = new URLSearchParams(window.location.search);
+        var redirect = params.get('__redirect');
+        if (!redirect) return;
+
+        try {
+          var decoded = decodeURIComponent(redirect);
+          // Only allow relative in-app paths.
+          if (!decoded.startsWith('/')) return;
+          window.history.replaceState(null, '', decoded);
+        } finally {
+          // nothing
+        }
+      })();
+    </script>
+
     <title>KortingDeal.nl - De Beste Deals & Kortingen van Nederland</title>
-    <meta name="description" content="Vind de beste deals, kortingen en aanbiedingen van Nederland. Bespaar tot 90% op top producten bij KortingDeal.nl" />
+    <meta
+      name="description"
+      content="Vind de beste deals, kortingen en aanbiedingen van Nederland. Bespaar tot 90% op top producten bij KortingDeal.nl"
+    />
     <meta name="author" content="KortingDeal.nl" />
     
     <link rel="icon" type="image/png" href="/favicon.png" />
