@@ -50,6 +50,13 @@ export function ProductCard({ product }: ProductCardProps) {
               alt={product.seo_title}
               className="w-full h-full object-contain p-6 group-hover:scale-110 transition-transform duration-700 ease-out"
               loading="lazy"
+              decoding="async"
+              style={{ 
+                imageRendering: 'auto',
+                WebkitBackfaceVisibility: 'hidden',
+                backfaceVisibility: 'hidden',
+                transform: 'translateZ(0)'
+              }}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
