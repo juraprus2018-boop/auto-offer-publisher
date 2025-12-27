@@ -233,14 +233,22 @@ const DealDetail = () => {
         <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
           {/* Product Image */}
           <figure className="relative">
-            <div className="aspect-square rounded-lg overflow-hidden bg-secondary">
+            <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-muted/30 to-muted/60 shadow-xl">
               {product.image_url ? (
                 <img
                   src={product.image_url}
                   alt={product.seo_title}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain p-4"
                   itemProp="image"
                   loading="eager"
+                  decoding="sync"
+                  fetchPriority="high"
+                  style={{ 
+                    imageRendering: 'auto',
+                    WebkitBackfaceVisibility: 'hidden',
+                    backfaceVisibility: 'hidden',
+                    transform: 'translateZ(0)'
+                  }}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-muted-foreground">
