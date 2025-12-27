@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useProduct, useProductVariants } from '@/hooks/useProducts';
+import { withImageSize } from '@/lib/utils';
+
 
 const DealDetail = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -236,18 +238,17 @@ const DealDetail = () => {
             <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-muted/30 to-muted/60 shadow-xl">
               {product.image_url ? (
                 <img
-                  src={product.image_url}
+                  src={withImageSize(product.image_url, 1200)}
                   alt={product.seo_title}
                   className="w-full h-full object-contain p-4"
                   itemProp="image"
                   loading="eager"
                   decoding="sync"
-                  fetchPriority="high"
-                  style={{ 
+                  style={{
                     imageRendering: 'auto',
                     WebkitBackfaceVisibility: 'hidden',
                     backfaceVisibility: 'hidden',
-                    transform: 'translateZ(0)'
+                    transform: 'translateZ(0)',
                   }}
                 />
               ) : (
