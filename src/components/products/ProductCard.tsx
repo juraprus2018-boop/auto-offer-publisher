@@ -2,7 +2,9 @@ import { Link } from 'react-router-dom';
 import { ExternalLink, Tag, Percent } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { withImageSize } from '@/lib/utils';
 import type { Product } from '@/types/database';
+
 
 interface ProductCardProps {
   product: Product;
@@ -46,16 +48,16 @@ export function ProductCard({ product }: ProductCardProps) {
         <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-muted/30 to-muted/60">
           {product.image_url ? (
             <img
-              src={product.image_url}
+              src={withImageSize(product.image_url, 600)}
               alt={product.seo_title}
               className="w-full h-full object-contain p-6 group-hover:scale-110 transition-transform duration-700 ease-out"
               loading="lazy"
               decoding="async"
-              style={{ 
+              style={{
                 imageRendering: 'auto',
                 WebkitBackfaceVisibility: 'hidden',
                 backfaceVisibility: 'hidden',
-                transform: 'translateZ(0)'
+                transform: 'translateZ(0)',
               }}
             />
           ) : (
