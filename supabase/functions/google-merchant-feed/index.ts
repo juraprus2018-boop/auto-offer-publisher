@@ -32,30 +32,6 @@ interface Product {
 const MIN_IMAGE_SIZE = 100; // Non-apparel minimum
 const MIN_APPAREL_IMAGE_SIZE = 250; // Apparel minimum
 
-// Check if a category is apparel-related
-function isApparelCategory(categoryName: string | null | undefined): boolean {
-  if (!categoryName) return false;
-  const apparelKeywords = ['kleding', 'fashion', 'mode', 'schoenen', 'tassen', 'accessoires', 'shirts', 'jassen', 'broeken', 'jurken', 'apparel', 'clothing', 'shoes'];
-  return apparelKeywords.some(keyword => categoryName.toLowerCase().includes(keyword));
-}
-
-// Check if product has valid image dimensions
-function hasValidImageDimensions(product: Product): boolean {
-  // If no image URL, skip
-  if (!product.image_url) return false;
-  
-  // If we don't have dimension data yet, include the product (will be validated later)
-  if (product.image_width === null || product.image_height === null) {
-    return true; // Include for now, Google will validate
-  }
-  
-  const minSize = isApparelCategory(product.category?.[0]?.name || product.merchant_category) 
-    ? MIN_APPAREL_IMAGE_SIZE 
-    : MIN_IMAGE_SIZE;
-  
-  return product.image_width >= minSize && product.image_height >= minSize;
-}
-
 function escapeXml(text: string | null | undefined): string {
   if (!text) return "";
   return text
@@ -160,6 +136,7 @@ Deno.serve(async (req) => {
       const from = page * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
 
+      // Only fetch products with valid image dimensions (min 100x100)
       const { data: products, error } = await supabase
         .from("products")
         .select(`
@@ -184,6 +161,9 @@ Deno.serve(async (req) => {
           advertiser:advertisers(name)
         `)
         .eq("is_active", true)
+        .not("image_url", "is", null)
+        .gte("image_width", MIN_IMAGE_SIZE)
+        .gte("image_height", MIN_IMAGE_SIZE)
         .order("created_at", { ascending: false })
         .range(from, to);
 
@@ -202,13 +182,10 @@ Deno.serve(async (req) => {
     }
 
     const products = allProducts;
-
-    // Filter products with valid images
-    const validProducts = (products || []).filter((p) => hasValidImageDimensions(p as Product));
     
-    console.log(`Filtered ${products.length} products to ${validProducts.length} with valid images`);
+    console.log(`Total products with valid images (min ${MIN_IMAGE_SIZE}x${MIN_IMAGE_SIZE}): ${products.length}`);
 
-    const productItems = validProducts
+    const productItems = products
       .map((p) => generateProductXml(p as Product, baseUrl))
       .join("\n");
 
