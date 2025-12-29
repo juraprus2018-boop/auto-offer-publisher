@@ -138,7 +138,9 @@ export type Database = {
           description: string | null
           discount_percentage: number | null
           id: string
+          image_height: number | null
           image_url: string | null
+          image_width: number | null
           is_active: boolean | null
           is_featured: boolean | null
           last_synced_at: string | null
@@ -166,7 +168,9 @@ export type Database = {
           description?: string | null
           discount_percentage?: number | null
           id?: string
+          image_height?: number | null
           image_url?: string | null
+          image_width?: number | null
           is_active?: boolean | null
           is_featured?: boolean | null
           last_synced_at?: string | null
@@ -194,7 +198,9 @@ export type Database = {
           description?: string | null
           discount_percentage?: number | null
           id?: string
+          image_height?: number | null
           image_url?: string | null
+          image_width?: number | null
           is_active?: boolean | null
           is_featured?: boolean | null
           last_synced_at?: string | null

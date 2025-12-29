@@ -8,3 +8,9 @@ verify_jwt = false
 
 [functions.sitemap]
 verify_jwt = false
+
+[functions.google-merchant-feed]
+verify_jwt = false
+
+[functions.validate-images]
+verify_jwt = false
