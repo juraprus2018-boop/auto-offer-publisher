@@ -24,6 +24,8 @@ interface ProductData {
   merchant_category?: string;
   category_id?: string;
   variant_value?: string;
+  image_width?: number;
+  image_height?: number;
 }
 
 serve(async (req) => {
@@ -87,9 +89,9 @@ serve(async (req) => {
           seo_title: p.seo_title,
           seo_description: p.seo_description,
           slug: uniqueSlug,
-        original_price: p.original_price,
-        sale_price: p.sale_price,
-        discount_percentage: p.discount_percentage,
+          original_price: p.original_price,
+          sale_price: p.sale_price,
+          discount_percentage: p.discount_percentage,
           currency: p.currency || 'EUR',
           brand: p.brand,
           merchant_category: p.merchant_category,
@@ -99,6 +101,8 @@ serve(async (req) => {
           is_featured: (p.discount_percentage || 0) >= 50,
           last_synced_at: new Date().toISOString(),
           variant_value: p.variant_value,
+          image_width: p.image_width || null,
+          image_height: p.image_height || null,
         };
       });
 

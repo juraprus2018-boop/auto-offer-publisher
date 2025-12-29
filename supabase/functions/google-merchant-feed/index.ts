@@ -21,8 +21,39 @@ interface Product {
   currency: string | null;
   brand: string | null;
   availability: string | null;
+  image_width: number | null;
+  image_height: number | null;
+  merchant_category: string | null;
   category?: { name: string }[] | null;
   advertiser?: { name: string }[] | null;
+}
+
+// Minimum image dimensions for Google Merchant Center
+const MIN_IMAGE_SIZE = 100; // Non-apparel minimum
+const MIN_APPAREL_IMAGE_SIZE = 250; // Apparel minimum
+
+// Check if a category is apparel-related
+function isApparelCategory(categoryName: string | null | undefined): boolean {
+  if (!categoryName) return false;
+  const apparelKeywords = ['kleding', 'fashion', 'mode', 'schoenen', 'tassen', 'accessoires', 'shirts', 'jassen', 'broeken', 'jurken', 'apparel', 'clothing', 'shoes'];
+  return apparelKeywords.some(keyword => categoryName.toLowerCase().includes(keyword));
+}
+
+// Check if product has valid image dimensions
+function hasValidImageDimensions(product: Product): boolean {
+  // If no image URL, skip
+  if (!product.image_url) return false;
+  
+  // If we don't have dimension data yet, include the product (will be validated later)
+  if (product.image_width === null || product.image_height === null) {
+    return true; // Include for now, Google will validate
+  }
+  
+  const minSize = isApparelCategory(product.category?.[0]?.name || product.merchant_category) 
+    ? MIN_APPAREL_IMAGE_SIZE 
+    : MIN_IMAGE_SIZE;
+  
+  return product.image_width >= minSize && product.image_height >= minSize;
 }
 
 function escapeXml(text: string | null | undefined): string {
@@ -146,6 +177,9 @@ Deno.serve(async (req) => {
           currency,
           brand,
           availability,
+          image_width,
+          image_height,
+          merchant_category,
           category:categories(name),
           advertiser:advertisers(name)
         `)
@@ -169,7 +203,12 @@ Deno.serve(async (req) => {
 
     const products = allProducts;
 
-    const productItems = (products || [])
+    // Filter products with valid images
+    const validProducts = (products || []).filter((p) => hasValidImageDimensions(p as Product));
+    
+    console.log(`Filtered ${products.length} products to ${validProducts.length} with valid images`);
+
+    const productItems = validProducts
       .map((p) => generateProductXml(p as Product, baseUrl))
       .join("\n");
 
