@@ -149,34 +149,55 @@ export function googleMerchantPlugin(): Plugin {
       const supabase = createClient(supabaseUrl, supabaseKey);
 
       try {
-        // Fetch all active products
-        const { data: products, error } = await supabase
-          .from('products')
-          .select(`
-            id,
-            awin_product_id,
-            original_title,
-            seo_title,
-            description,
-            seo_description,
-            image_url,
-            affiliate_link,
-            slug,
-            original_price,
-            sale_price,
-            currency,
-            brand,
-            availability,
-            category:categories(name),
-            advertiser:advertisers(name)
-          `)
-          .eq('is_active', true)
-          .order('created_at', { ascending: false });
+        // Fetch ALL active products with pagination (Supabase default limit is 1000)
+        const PAGE_SIZE = 1000;
+        let allProducts: any[] = [];
+        let page = 0;
+        let hasMore = true;
 
-        if (error) {
-          console.error('Error fetching products:', error);
-          return;
+        while (hasMore) {
+          const from = page * PAGE_SIZE;
+          const to = from + PAGE_SIZE - 1;
+
+          const { data: products, error } = await supabase
+            .from('products')
+            .select(`
+              id,
+              awin_product_id,
+              original_title,
+              seo_title,
+              description,
+              seo_description,
+              image_url,
+              affiliate_link,
+              slug,
+              original_price,
+              sale_price,
+              currency,
+              brand,
+              availability,
+              category:categories(name),
+              advertiser:advertisers(name)
+            `)
+            .eq('is_active', true)
+            .order('created_at', { ascending: false })
+            .range(from, to);
+
+          if (error) {
+            console.error('Error fetching products:', error);
+            return;
+          }
+
+          if (products && products.length > 0) {
+            allProducts = allProducts.concat(products);
+            console.log(`Fetched page ${page + 1}: ${products.length} products (total: ${allProducts.length})`);
+          }
+
+          hasMore = products && products.length === PAGE_SIZE;
+          page++;
         }
+
+        const products = allProducts;
 
         const productItems = (products || [])
           .map((p: any) => {

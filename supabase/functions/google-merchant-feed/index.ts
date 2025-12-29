@@ -119,34 +119,55 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const baseUrl = url.searchParams.get("base_url") || "https://kortingdeal.nl";
 
-    // Fetch all active products with category and advertiser
-    const { data: products, error } = await supabase
-      .from("products")
-      .select(`
-        id,
-        awin_product_id,
-        original_title,
-        seo_title,
-        description,
-        seo_description,
-        image_url,
-        affiliate_link,
-        slug,
-        original_price,
-        sale_price,
-        currency,
-        brand,
-        availability,
-        category:categories(name),
-        advertiser:advertisers(name)
-      `)
-      .eq("is_active", true)
-      .order("created_at", { ascending: false });
+    // Fetch ALL active products with pagination (Supabase default limit is 1000)
+    const PAGE_SIZE = 1000;
+    let allProducts: Product[] = [];
+    let page = 0;
+    let hasMore = true;
 
-    if (error) {
-      console.error("Database error:", error);
-      throw new Error(`Failed to fetch products: ${error.message}`);
+    while (hasMore) {
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      const { data: products, error } = await supabase
+        .from("products")
+        .select(`
+          id,
+          awin_product_id,
+          original_title,
+          seo_title,
+          description,
+          seo_description,
+          image_url,
+          affiliate_link,
+          slug,
+          original_price,
+          sale_price,
+          currency,
+          brand,
+          availability,
+          category:categories(name),
+          advertiser:advertisers(name)
+        `)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .range(from, to);
+
+      if (error) {
+        console.error("Database error:", error);
+        throw new Error(`Failed to fetch products: ${error.message}`);
+      }
+
+      if (products && products.length > 0) {
+        allProducts = allProducts.concat(products as Product[]);
+        console.log(`Fetched page ${page + 1}: ${products.length} products (total: ${allProducts.length})`);
+      }
+
+      hasMore = products && products.length === PAGE_SIZE;
+      page++;
     }
+
+    const products = allProducts;
 
     const productItems = (products || [])
       .map((p) => generateProductXml(p as Product, baseUrl))
