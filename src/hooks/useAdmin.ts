@@ -201,7 +201,8 @@ function processProduct(
     awin_product_id: raw.aw_product_id,
     original_title: raw.product_name,
     description: raw.description,
-    image_url: raw.aw_image_url || raw.merchant_image_url,
+    // Prefer the merchant image URL (usually larger / higher quality) over the aw image URL
+    image_url: raw.merchant_image_url || raw.aw_image_url,
     product_url: raw.merchant_deep_link,
     affiliate_link: raw.aw_deep_link,
     seo_title: seoTitle,
