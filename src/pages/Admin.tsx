@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -17,6 +17,7 @@ import {
   Save,
   Link as LinkIcon,
   StopCircle,
+  ImageIcon,
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,16 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useAwinSettings, useSyncLogs, useProductStats, useBatchSync, useUpdateFeedUrl } from '@/hooks/useAdmin';
 
+interface ImageValidationProgress {
+  isRunning: boolean;
+  processed: number;
+  updated: number;
+  failed: number;
+  tooSmall: number;
+  remaining: number;
+  status: string;
+}
+
 const Admin = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -42,6 +53,100 @@ const Admin = () => {
   
   const [feedUrl, setFeedUrl] = useState('');
   const [isEditingFeed, setIsEditingFeed] = useState(false);
+  const [imageValidation, setImageValidation] = useState<ImageValidationProgress>({
+    isRunning: false,
+    processed: 0,
+    updated: 0,
+    failed: 0,
+    tooSmall: 0,
+    remaining: 0,
+    status: '',
+  });
+  const [shouldStopValidation, setShouldStopValidation] = useState(false);
+
+  const validateImagesBatch = useCallback(async (): Promise<{ remaining: number; processed: number; updated: number; failed: number; tooSmall: number }> => {
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/validate-images?batch_size=50`
+    );
+    if (!response.ok) {
+      throw new Error('Failed to validate images');
+    }
+    return response.json();
+  }, []);
+
+  const startImageValidation = useCallback(async () => {
+    setShouldStopValidation(false);
+    setImageValidation({
+      isRunning: true,
+      processed: 0,
+      updated: 0,
+      failed: 0,
+      tooSmall: 0,
+      remaining: 0,
+      status: 'Starting...',
+    });
+
+    let totalProcessed = 0;
+    let totalUpdated = 0;
+    let totalFailed = 0;
+    let totalTooSmall = 0;
+
+    try {
+      let remaining = Infinity;
+      
+      while (remaining > 0 && !shouldStopValidation) {
+        const result = await validateImagesBatch();
+        
+        totalProcessed += result.processed;
+        totalUpdated += result.updated;
+        totalFailed += result.failed;
+        totalTooSmall += result.tooSmall;
+        remaining = result.remaining;
+
+        setImageValidation({
+          isRunning: true,
+          processed: totalProcessed,
+          updated: totalUpdated,
+          failed: totalFailed,
+          tooSmall: totalTooSmall,
+          remaining,
+          status: `Validating... ${remaining.toLocaleString('nl-NL')} remaining`,
+        });
+
+        // Small delay between batches
+        if (remaining > 0) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+
+      setImageValidation(prev => ({
+        ...prev,
+        isRunning: false,
+        status: remaining === 0 ? 'Completed!' : 'Stopped',
+      }));
+
+      toast({
+        title: remaining === 0 ? 'Validatie voltooid' : 'Validatie gestopt',
+        description: `${totalUpdated.toLocaleString('nl-NL')} afbeeldingen gevalideerd, ${totalTooSmall.toLocaleString('nl-NL')} te klein.`,
+      });
+    } catch (error) {
+      console.error('Image validation error:', error);
+      setImageValidation(prev => ({
+        ...prev,
+        isRunning: false,
+        status: 'Error occurred',
+      }));
+      toast({
+        title: 'Validatie mislukt',
+        description: 'Er is een fout opgetreden.',
+        variant: 'destructive',
+      });
+    }
+  }, [validateImagesBatch, shouldStopValidation, toast]);
+
+  const stopImageValidation = useCallback(() => {
+    setShouldStopValidation(true);
+  }, []);
 
   // Set feed URL when settings load
   useEffect(() => {
@@ -374,6 +479,74 @@ const Admin = () => {
                 >
                   Feed URL Bewerken
                 </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Image Validation */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ImageIcon className="h-5 w-5" />
+              Afbeelding Validatie
+            </CardTitle>
+            <CardDescription>
+              Valideer afbeeldingsgroottes voor Google Merchant Center (min. 100x100px)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {imageValidation.isRunning ? (
+              <>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {imageValidation.status}
+                </div>
+                <Progress 
+                  value={imageValidation.remaining > 0 
+                    ? (imageValidation.processed / (imageValidation.processed + imageValidation.remaining)) * 100 
+                    : 100
+                  } 
+                  className="h-2" 
+                />
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Verwerkt:</span>
+                    <span className="ml-2 font-medium">{imageValidation.processed.toLocaleString('nl-NL')}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Gevalideerd:</span>
+                    <span className="ml-2 font-medium text-success">{imageValidation.updated.toLocaleString('nl-NL')}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Te klein:</span>
+                    <span className="ml-2 font-medium text-warning">{imageValidation.tooSmall.toLocaleString('nl-NL')}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Resterend:</span>
+                    <span className="ml-2 font-medium">{imageValidation.remaining.toLocaleString('nl-NL')}</span>
+                  </div>
+                </div>
+                <Button onClick={stopImageValidation} variant="destructive" size="sm" className="gap-2">
+                  <StopCircle className="h-4 w-4" />
+                  Stop Validatie
+                </Button>
+              </>
+            ) : (
+              <div className="flex items-center gap-4">
+                <Button 
+                  onClick={startImageValidation} 
+                  disabled={!isAdmin}
+                  className="gap-2"
+                >
+                  <ImageIcon className="h-4 w-4" />
+                  Start Afbeelding Validatie
+                </Button>
+                {imageValidation.status && (
+                  <Badge variant={imageValidation.status === 'Completed!' ? 'default' : 'secondary'}>
+                    {imageValidation.status}
+                  </Badge>
+                )}
               </div>
             )}
           </CardContent>
