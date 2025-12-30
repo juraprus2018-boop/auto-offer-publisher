@@ -32,6 +32,9 @@ function loadDotEnvIfNeeded(keys: string[]) {
   }
 }
 
+// Minimum image dimensions for Google Merchant Center
+const MIN_IMAGE_SIZE = 100;
+
 interface Product {
   id: string;
   awin_product_id: string;
@@ -47,6 +50,8 @@ interface Product {
   currency: string | null;
   brand: string | null;
   availability: string | null;
+  image_width: number | null;
+  image_height: number | null;
   category: { name: string } | null;
   advertiser: { name: string } | null;
 }
@@ -159,6 +164,7 @@ export function googleMerchantPlugin(): Plugin {
           const from = page * PAGE_SIZE;
           const to = from + PAGE_SIZE - 1;
 
+          // Only fetch products with valid image dimensions (min 100x100)
           const { data: products, error } = await supabase
             .from('products')
             .select(`
@@ -176,10 +182,15 @@ export function googleMerchantPlugin(): Plugin {
               currency,
               brand,
               availability,
+              image_width,
+              image_height,
               category:categories(name),
               advertiser:advertisers(name)
             `)
             .eq('is_active', true)
+            .not('image_url', 'is', null)
+            .gte('image_width', MIN_IMAGE_SIZE)
+            .gte('image_height', MIN_IMAGE_SIZE)
             .order('created_at', { ascending: false })
             .range(from, to);
 
@@ -231,7 +242,7 @@ ${productItems}
         fs.writeFileSync(feedPath, xml, 'utf-8');
 
         console.log(`Google Merchant feed generated: ${feedPath}`);
-        console.log(`Total products: ${products?.length || 0}`);
+        console.log(`Total products with valid images (min ${MIN_IMAGE_SIZE}x${MIN_IMAGE_SIZE}): ${products?.length || 0}`);
       } catch (err) {
         console.error('Error generating Google Merchant feed:', err);
       }
