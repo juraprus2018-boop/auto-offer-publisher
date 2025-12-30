@@ -2,12 +2,15 @@ import { useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Layout } from '@/components/layout/Layout';
 import { ProductGrid } from '@/components/products/ProductGrid';
+import { PriceFilterButtons } from '@/components/products/PriceFilterButtons';
 import { useInfiniteProducts } from '@/hooks/useInfiniteProducts';
 import { useCategories } from '@/hooks/useCategories';
+import type { ProductFilters as ProductFiltersType } from '@/types/database';
 
 const Index = () => {
   // Force a fresh shuffle on each page load/navigation (even with cache)
   const [shuffleKey] = useState(() => Date.now());
+  const [filters, setFilters] = useState<ProductFiltersType>({});
 
   const { 
     data, 
@@ -15,7 +18,7 @@ const Index = () => {
     hasNextPage, 
     isFetchingNextPage, 
     fetchNextPage 
-  } = useInfiniteProducts({}, undefined, shuffleKey);
+  } = useInfiniteProducts(filters, undefined, shuffleKey);
 
   const { data: categories } = useCategories();
 
@@ -142,6 +145,9 @@ const Index = () => {
               {totalCount.toLocaleString()} producten met korting
             </p>
           )}
+          <div className="mt-4">
+            <PriceFilterButtons filters={filters} onFiltersChange={setFilters} />
+          </div>
         </header>
 
         <section aria-label="Productoverzicht">

@@ -4,6 +4,7 @@ import { Helmet } from 'react-helmet-async';
 import { Layout } from '@/components/layout/Layout';
 import { ProductGrid } from '@/components/products/ProductGrid';
 import { ProductFilters } from '@/components/products/ProductFilters';
+import { PriceFilterButtons } from '@/components/products/PriceFilterButtons';
 import { useInfiniteProducts } from '@/hooks/useInfiniteProducts';
 import type { ProductFilters as ProductFiltersType } from '@/types/database';
 
@@ -148,6 +149,11 @@ const Deals = () => {
             )}
           </p>
         </header>
+
+        {/* Price Filter Buttons */}
+        <div className="mb-4">
+          <PriceFilterButtons filters={filters} onFiltersChange={setFilters} />
+        </div>
 
         {/* Sticky Filter Bar */}
         <div className="sticky top-[104px] z-40 -mx-4 px-4 py-4 mb-6 bg-background/95 backdrop-blur-sm border-b border-border/50 shadow-sm">
